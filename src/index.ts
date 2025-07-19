@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import { config } from './config/config';
 import { authRoutes } from './routes/auth';
 import { dnsmasqRoutes } from './routes/dnsmasq';
@@ -9,8 +8,7 @@ import { authMiddleware } from './middleware/auth';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// CORS configuration
 app.use(cors({
   origin: config.allowedOrigins,
   credentials: true

@@ -4,6 +4,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import { config } from '../config/config';
 import { AuthRequest, AuthResponse } from '../types/auth';
 import { ApiResponse, ExpressHandler } from '../types/express';
+import { authMiddleware } from '../middleware/auth';
 
 export const authRoutes = Router();
 
@@ -12,7 +13,7 @@ export const authRoutes = Router();
 const defaultUser = {
   id: '1',
   username: 'admin',
-  passwordHash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewkEzLWQp8/B5YdS', // 'admin'
+  passwordHash: '$2b$12$Gv3zkUg.gIzOFbF4F.uc.eILhT5cqvilzf5Ksxrxs5W8wQ6K3Ztg.', // 'admin'
   isAdmin: true,
   lastLogin: undefined,
   loginAttempts: 0,
@@ -88,4 +89,4 @@ const verifyToken: ExpressHandler = (req, res) => {
 };
 
 authRoutes.post('/login', login);
-authRoutes.get('/verify', verifyToken);
+authRoutes.get('/verify', authMiddleware, verifyToken);

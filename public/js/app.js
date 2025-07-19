@@ -6,21 +6,39 @@ class DnsmasqGUI {
         this.apiBase = '/api';
         this.currentConfig = null;
         
-        this.init();
+        // Don't call init automatically, let the DOMContentLoaded handler control this
     }
 
     async init() {
+        console.log('Initializing DNSmasq GUI...');
+        
+        // For now, always show login modal to test
+        console.log('Showing login modal');
+        this.showLoginModal();
+        return;
+        
         // Check if user is authenticated
-        if (!this.token || !(await this.verifyToken())) {
+        if (!this.token) {
             this.showLoginModal();
             return;
         }
-
+        
+        // Verify the existing token
+        const tokenValid = await this.verifyToken();
+        
+        if (!tokenValid) {
+            this.showLoginModal();
+            return;
+        }
+        
+        console.log('Authentication successful, loading dashboard');
         this.initEventListeners();
         this.loadDashboard();
     }
 
     initEventListeners() {
+        console.log('Setting up event listeners');
+        
         // Sidebar navigation
         document.querySelectorAll('[data-section]').forEach(link => {
             link.addEventListener('click', (e) => {
@@ -31,9 +49,40 @@ class DnsmasqGUI {
         });
 
         // Login form
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.login();
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.login();
+            });
+        }
+        
+        // Login button in modal footer
+        const loginButton = document.getElementById('loginBtn');
+        if (loginButton) {
+            console.log('Setting up login button event listener');
+            loginButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.login();
+            });
+        }
+        
+        // Logout button
+        const logoutButton = document.getElementById('logoutBtn');
+        if (logoutButton) {
+            logoutButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.logout();
+            });
+        }
+        
+        // Generic cleanup for any remaining onclick handlers
+        document.addEventListener('click', (e) => {
+            if (e.target.hasAttribute('onclick')) {
+                console.warn('Removing inline onclick handler from:', e.target);
+                e.target.removeAttribute('onclick');
+                e.preventDefault();
+            }
         });
     }
 
@@ -412,11 +461,26 @@ class DnsmasqGUI {
             const data = await response.json();
 
             if (data.success) {
+                console.log('Login successful');
                 this.token = data.token;
                 localStorage.setItem('authToken', this.token);
                 document.getElementById('username-display').textContent = data.user.username;
-                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
-                this.init();
+                
+                // Hide login modal
+                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                
+                // Show main content
+                const mainContent = document.querySelector('.container-fluid');
+                if (mainContent) {
+                    mainContent.style.display = 'block';
+                }
+                
+                // Initialize the app
+                this.initEventListeners();
+                this.loadDashboard();
             } else {
                 errorDiv.textContent = data.error || 'Login failed';
                 errorDiv.style.display = 'block';
@@ -434,34 +498,93 @@ class DnsmasqGUI {
     }
 
     showLoginModal() {
-        const modal = new bootstrap.Modal(document.getElementById('loginModal'));
-        modal.show();
+        // Hide main content
+        const mainContent = document.querySelector('.container-fluid');
+        if (mainContent) {
+            mainContent.style.display = 'none';
+        }
+        
+        // Get modal element
+        const loginModal = document.getElementById('loginModal');
+        
+        if (!loginModal) {
+            console.error('Login modal not found!');
+            return;
+        }
+        
+        // Set up event listeners for modal buttons
+        this.initEventListeners();
+        
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const modal = new bootstrap.Modal(loginModal, {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                modal.show();
+            } else {
+                throw new Error('Bootstrap not available');
+            }
+        } catch (error) {
+            console.error('Bootstrap modal failed:', error);
+            
+            // Manual modal display
+            loginModal.classList.add('show');
+            loginModal.style.display = 'block';
+            loginModal.setAttribute('aria-modal', 'true');
+            loginModal.setAttribute('role', 'dialog');
+            
+            // Add backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.style.zIndex = '1040';
+            document.body.appendChild(backdrop);
+            
+            // Ensure modal is on top
+            loginModal.style.zIndex = '1050';
+        }
     }
 
     async verifyToken() {
         try {
+            console.log('Verifying token...');
             const response = await this.apiCall('/auth/verify');
+            console.log('Verify response:', response);
             return response.success;
-        } catch {
+        } catch (error) {
+            console.log('Token verification failed:', error);
             return false;
         }
     }
 
     async apiCall(endpoint, method = 'GET', data = null) {
+        console.log(`API Call: ${method} ${this.apiBase}${endpoint}`);
+        
         const options = {
             method,
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}`
+                'Content-Type': 'application/json'
             }
         };
+
+        // Add authorization header if token exists
+        if (this.token) {
+            options.headers['Authorization'] = `Bearer ${this.token}`;
+        }
 
         if (data) {
             options.body = JSON.stringify(data);
         }
 
-        const response = await fetch(`${this.apiBase}${endpoint}`, options);
-        return await response.json();
+        try {
+            const response = await fetch(`${this.apiBase}${endpoint}`, options);
+            const result = await response.json();
+            console.log(`API Response:`, result);
+            return result;
+        } catch (error) {
+            console.error(`API Error:`, error);
+            throw error;
+        }
     }
 
     // Placeholder methods for other sections
@@ -486,8 +609,14 @@ class DnsmasqGUI {
 let app;
 
 window.addEventListener('DOMContentLoaded', () => {
-    app = new DnsmasqGUI();
-    enableAutoRefresh();
+    // Initialize the app class
+    try {
+        app = new DnsmasqGUI();
+        app.init();  // This will show the login modal
+        enableAutoRefresh();
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+    }
 });
 
 function convertToStatic(macAddress, hostname, ipAddress) {
@@ -504,6 +633,29 @@ function restartService() {
 
 function logout() {
     app.logout();
+}
+
+// Placeholder functions for HTML onclick handlers (to be implemented)
+function addDhcpRange() {
+    alert('DHCP Range management will be implemented next!');
+}
+
+function addDhcpOption() {
+    alert('DHCP Options management will be implemented next!');
+}
+
+function addDnsRecord() {
+    alert('DNS Record management will be implemented next!');
+}
+
+function addUpstreamServer() {
+    alert('Upstream server management will be implemented next!');
+}
+
+function refreshLeases() {
+    if (app) {
+        app.loadLeases();
+    }
 }
 
 // Auto-refresh functionality
