@@ -1,22 +1,41 @@
 # DNSmasq GUI
 
-A web-based graphical user interface for managing DNSmasq configuration on Raspberry Pi and other Linux systems.
+A modern web-based graphical user interface for managing DNSmasq configuration on Raspberry Pi and other Linux systems.
 
-## Project Overview
+![DNSmasq GUI Dashboard](https://img.shields.io/badge/status-in%20development-yellow)
+![License](https://img.shields.io/badge/license-ISC-blue)
+![Node.js](https://img.shields.io/badge/node.js-18%2B-brightgreen)
+![TypeScript](https://img.shields.io/badge/typescript-5.8-blue)
 
-This project provides a comprehensive web GUI for managing DNSmasq, supporting:
+## 🚀 Features
 
-- **DHCP Configuration**: Multiple networks, DHCP ranges, options, and static reservations
-- **DNS Management**: A, AAAA, CNAME, MX, TXT, SRV, and PTR records
-- **Lease Management**: View active leases and convert dynamic leases to static reservations
-- **Network Interfaces**: Configure which interfaces DNSmasq listens on
-- **Advanced Features**: Upstream DNS servers, caching, logging, and security settings
+- **🌐 Web-based Interface**: Modern, responsive Bootstrap-based UI
+- **🔐 Secure Authentication**: JWT-based login system with bcrypt password hashing
+- **🏠 DHCP Management**: Configure multiple network ranges, options, and static reservations
+- **📡 DNS Configuration**: Manage A, AAAA, CNAME, MX, TXT, SRV, and PTR records
+- **📊 Real-time Monitoring**: View active DHCP leases and service status
+- **🔄 Lease Management**: Convert dynamic leases to static reservations with one click
+- **🌍 Multi-network Support**: Handle multiple networks with DHCP relay support
+- **🍓 Raspberry Pi Optimized**: Designed specifically for Raspberry Pi deployment
+- **🛠️ Easy Deployment**: Automated deployment scripts and troubleshooting tools
 
-## Technology Stack
+## 📸 Screenshots
 
-- **Backend**: Node.js with TypeScript, Express.js
+*Screenshots will be added as the project develops*
+
+## 🎯 Target Use Cases
+
+- **Home Lab Management**: Perfect for managing home networks and lab environments
+- **Small Business Networks**: Manage multiple VLANs and network segments
+- **IoT Networks**: Separate IoT devices with dedicated DHCP ranges
+- **Guest Networks**: Easy guest network configuration and management
+- **Educational Environments**: Learn networking concepts with a visual interface
+
+## 🛠️ Technology Stack
+
+- **Backend**: Node.js, Express.js, TypeScript
 - **Frontend**: HTML5, Bootstrap 5, Vanilla JavaScript
-- **Security**: JWT authentication, bcrypt password hashing, Helmet.js
+- **Security**: JWT, bcrypt, Helmet.js, CORS
 - **Target Platform**: Raspberry Pi 4B with Raspberry Pi OS Lite
 
 ## Development Setup
