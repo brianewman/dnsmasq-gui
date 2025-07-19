@@ -2,6 +2,7 @@
 
 body {
     background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .content-section {
@@ -17,15 +18,27 @@ body {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     border: 1px solid rgba(0, 0, 0, 0.125);
     margin-bottom: 1rem;
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
 .list-group-item:hover {
     background-color: #f8f9fa;
+    transition: background-color 0.15s ease-in-out;
 }
 
 .list-group-item.active {
     background-color: #0d6efd;
     border-color: #0d6efd;
+}
+
+/* Dashboard cards */
+.card .h4 {
+    color: #0d6efd;
+    font-weight: 600;
 }
 
 /* Status indicators */
@@ -41,6 +54,49 @@ body {
     color: #6c757d !important;
 }
 
+/* Table improvements */
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Button styling */
+.btn-group .btn {
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-outline-primary:hover {
+    transform: translateY(-1px);
+}
+
+/* Code styling */
+code {
+    background-color: #f8f9fa;
+    color: #e83e8c;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+/* Loading states */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Alert improvements */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
 /* Form styling */
 .dhcp-range-item, .dhcp-option-item, .dns-record-item {
     border: 1px solid #dee2e6;
@@ -48,27 +104,26 @@ body {
     padding: 1rem;
     margin-bottom: 1rem;
     background-color: white;
+    transition: border-color 0.15s ease-in-out;
+}
+
+.dhcp-range-item:hover, .dhcp-option-item:hover, .dns-record-item:hover {
+    border-color: #0d6efd;
 }
 
 .remove-btn {
     color: #dc3545;
     cursor: pointer;
+    transition: color 0.15s ease-in-out;
 }
 
 .remove-btn:hover {
     color: #b02a37;
 }
 
-/* Table improvements */
-.table th {
-    background-color: #f8f9fa;
-    border-top: none;
-}
-
-/* Loading spinner */
-.spinner-border-sm {
-    width: 1rem;
-    height: 1rem;
+/* Badge improvements */
+.badge {
+    font-size: 0.75em;
 }
 
 /* Responsive adjustments */
@@ -80,5 +135,31 @@ body {
     
     .card-body {
         padding: 1rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #212529;
+        color: #fff;
+    }
+    
+    .card {
+        background-color: #343a40;
+        border-color: #495057;
+    }
+    
+    .table th {
+        background-color: #495057;
+        color: #fff;
     }
 }

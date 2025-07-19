@@ -79,31 +79,101 @@ class DnsmasqGUI {
         try {
             // Load service status
             const statusResponse = await this.apiCall('/dnsmasq/status');
-            const statusElement = document.getElementById('service-status');
-            if (statusResponse.success) {
-                statusElement.innerHTML = `
-                    <span class="status-${statusResponse.data.status}">
-                        <i class="bi bi-circle-fill me-1"></i>
-                        ${statusResponse.data.status.toUpperCase()}
-                    </span>
-                `;
-            }
+            this.updateServiceStatus(statusResponse);
 
             // Load lease counts
             const leasesResponse = await this.apiCall('/dnsmasq/leases');
-            if (leasesResponse.success) {
-                document.getElementById('active-leases-count').textContent = leasesResponse.data.length;
-            }
+            this.updateLeaseCounts(leasesResponse);
 
             // Load config for static lease count
             const configResponse = await this.apiCall('/dnsmasq/config');
-            if (configResponse.success) {
-                this.currentConfig = configResponse.data;
-                document.getElementById('static-leases-count').textContent = configResponse.data.staticLeases.length;
-            }
+            this.updateConfigInfo(configResponse);
+
         } catch (error) {
             console.error('Failed to load dashboard:', error);
+            this.showDashboardError();
         }
+    }
+
+    updateServiceStatus(statusResponse) {
+        const statusElement = document.getElementById('service-status');
+        if (statusResponse.success) {
+            const status = statusResponse.data.status;
+            const statusIcon = status === 'running' ? 'bi-circle-fill text-success' : 'bi-circle-fill text-danger';
+            const statusText = status.toUpperCase();
+            
+            statusElement.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi ${statusIcon} me-2"></i>
+                    <div>
+                        <strong>${statusText}</strong>
+                        <br><small class="text-muted">Last checked: ${new Date().toLocaleTimeString()}</small>
+                    </div>
+                </div>
+            `;
+        } else {
+            statusElement.innerHTML = `
+                <div class="text-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Status Unknown
+                </div>
+            `;
+        }
+    }
+
+    updateLeaseCounts(leasesResponse) {
+        const activeCountElement = document.getElementById('active-leases-count');
+        const leasesCountBadge = document.getElementById('leases-count');
+        
+        if (leasesResponse.success) {
+            const count = leasesResponse.data.length;
+            const expiredCount = leasesResponse.data.filter(lease => 
+                new Date(lease.expiry) < new Date()
+            ).length;
+            
+            activeCountElement.innerHTML = `
+                <div class="h4 mb-1">${count}</div>
+                <small class="text-muted">
+                    ${expiredCount > 0 ? `(${expiredCount} expired)` : 'All active'}
+                </small>
+            `;
+            
+            if (leasesCountBadge) {
+                leasesCountBadge.textContent = count;
+            }
+        } else {
+            activeCountElement.innerHTML = '<span class="text-muted">Error loading</span>';
+            if (leasesCountBadge) {
+                leasesCountBadge.textContent = '?';
+            }
+        }
+    }
+
+    updateConfigInfo(configResponse) {
+        const staticCountElement = document.getElementById('static-leases-count');
+        
+        if (configResponse.success) {
+            this.currentConfig = configResponse.data;
+            const staticCount = configResponse.data.staticLeases.length;
+            const rangeCount = configResponse.data.dhcpRanges.length;
+            
+            staticCountElement.innerHTML = `
+                <div class="h4 mb-1">${staticCount}</div>
+                <small class="text-muted">
+                    ${rangeCount} DHCP range${rangeCount !== 1 ? 's' : ''}
+                </small>
+            `;
+        } else {
+            staticCountElement.innerHTML = '<span class="text-muted">Error loading</span>';
+        }
+    }
+
+    showDashboardError() {
+        ['service-status', 'active-leases-count', 'static-leases-count'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerHTML = '<span class="text-danger">Error loading</span>';
+            }
+        });
     }
 
     async loadLeases() {
@@ -111,9 +181,14 @@ class DnsmasqGUI {
             const response = await this.apiCall('/dnsmasq/leases');
             if (response.success) {
                 this.renderLeases(response.data);
+            } else {
+                document.getElementById('leases-tbody').innerHTML = 
+                    '<tr><td colspan="5" class="text-center text-muted">Failed to load leases</td></tr>';
             }
         } catch (error) {
             console.error('Failed to load leases:', error);
+            document.getElementById('leases-tbody').innerHTML = 
+                '<tr><td colspan="5" class="text-center text-danger">Error loading leases</td></tr>';
         }
     }
 
@@ -121,37 +196,190 @@ class DnsmasqGUI {
         const tbody = document.getElementById('leases-tbody');
         tbody.innerHTML = '';
 
+        if (leases.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No active leases found</td></tr>';
+            return;
+        }
+
         leases.forEach(lease => {
             const row = document.createElement('tr');
+            
+            // Calculate time remaining
+            const expiry = new Date(lease.expiry);
+            const now = new Date();
+            const timeRemaining = expiry > now ? 
+                this.formatTimeRemaining(expiry - now) : 
+                '<span class="text-danger">Expired</span>';
+            
             row.innerHTML = `
-                <td>${lease.ipAddress}</td>
-                <td>${lease.macAddress}</td>
-                <td>${lease.hostname || '-'}</td>
-                <td>${new Date(lease.expiry).toLocaleString()}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="convertToStatic('${lease.macAddress}', '${lease.hostname || ''}')">
-                        <i class="bi bi-bookmark"></i> Make Static
-                    </button>
+                    <strong>${lease.ipAddress}</strong>
+                </td>
+                <td>
+                    <code class="small">${lease.macAddress}</code>
+                </td>
+                <td>
+                    <span class="text-primary">${lease.hostname || '<em>Unknown</em>'}</span>
+                </td>
+                <td>
+                    <small class="text-muted">
+                        ${expiry.toLocaleString()}<br>
+                        (${timeRemaining})
+                    </small>
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="app.convertToStatic('${lease.macAddress}', '${lease.hostname || ''}', '${lease.ipAddress}')"
+                                title="Convert to static reservation">
+                            <i class="bi bi-bookmark"></i> Make Static
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" 
+                                onclick="app.showLeaseDetails('${lease.macAddress}')"
+                                title="Show lease details">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(row);
         });
     }
 
-    async convertToStatic(macAddress, hostname) {
-        if (!confirm('Convert this lease to a static reservation?')) return;
+    formatTimeRemaining(milliseconds) {
+        const hours = Math.floor(milliseconds / (1000 * 60 * 60));
+        const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours > 24) {
+            const days = Math.floor(hours / 24);
+            return `${days}d ${hours % 24}h`;
+        } else if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else if (minutes > 0) {
+            return `${minutes}m`;
+        } else {
+            return '< 1m';
+        }
+    }
+
+    async convertToStatic(macAddress, hostname, ipAddress) {
+        if (!confirm(`Convert lease for ${macAddress} to static reservation?\n\nThis will create a permanent reservation for:\nIP: ${ipAddress}\nMAC: ${macAddress}\nHostname: ${hostname || '(none)'}`)) {
+            return;
+        }
 
         try {
-            const response = await this.apiCall(`/dnsmasq/leases/${macAddress}/static`, 'POST', { hostname });
+            const response = await this.apiCall(`/dnsmasq/leases/${macAddress}/static`, 'POST', { 
+                hostname: hostname || null,
+                ipAddress: ipAddress 
+            });
+            
             if (response.success) {
-                alert('Lease converted to static reservation successfully!');
-                this.loadLeases();
-                this.loadDashboard(); // Refresh counts
+                this.showAlert('success', 'Static reservation created successfully!');
+                this.loadLeases(); // Refresh the lease list
+                this.loadDashboard(); // Refresh dashboard counts
+            } else {
+                this.showAlert('danger', response.error || 'Failed to convert lease to static reservation');
             }
         } catch (error) {
-            alert('Failed to convert lease to static reservation');
-            console.error(error);
+            console.error('Error converting to static:', error);
+            this.showAlert('danger', 'Failed to convert lease to static reservation');
         }
+    }
+
+    showLeaseDetails(macAddress) {
+        // Find the lease data
+        const tbody = document.getElementById('leases-tbody');
+        const rows = tbody.querySelectorAll('tr');
+        
+        for (const row of rows) {
+            if (row.innerHTML.includes(macAddress)) {
+                const cells = row.querySelectorAll('td');
+                const ipAddress = cells[0].textContent.trim();
+                const hostname = cells[2].textContent.trim();
+                const expiry = cells[3].textContent.trim();
+                
+                this.showModal('Lease Details', `
+                    <div class="row">
+                        <div class="col-sm-4"><strong>IP Address:</strong></div>
+                        <div class="col-sm-8"><code>${ipAddress}</code></div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>MAC Address:</strong></div>
+                        <div class="col-sm-8"><code>${macAddress}</code></div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Hostname:</strong></div>
+                        <div class="col-sm-8">${hostname === 'Unknown' ? '<em>Not set</em>' : hostname}</div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Expires:</strong></div>
+                        <div class="col-sm-8"><small>${expiry}</small></div>
+                    </div>
+                `);
+                break;
+            }
+        }
+    }
+
+    showAlert(type, message) {
+        // Remove any existing alerts
+        const existingAlert = document.querySelector('.alert-dismissible');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+
+        // Create new alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        // Insert at the top of the main content area
+        const mainContent = document.querySelector('.col-md-9.col-lg-10');
+        mainContent.insertBefore(alertDiv, mainContent.firstChild);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    showModal(title, content) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('detailsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.innerHTML = `
+                <div class="modal fade" id="detailsModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="detailsModalTitle"></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="detailsModalBody">
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Update modal content
+        document.getElementById('detailsModalTitle').textContent = title;
+        document.getElementById('detailsModalBody').innerHTML = content;
+
+        // Show modal
+        const bootstrapModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        bootstrapModal.show();
     }
 
     async restartService() {
@@ -259,10 +487,15 @@ let app;
 
 window.addEventListener('DOMContentLoaded', () => {
     app = new DnsmasqGUI();
+    enableAutoRefresh();
 });
 
-function convertToStatic(macAddress, hostname) {
-    app.convertToStatic(macAddress, hostname);
+function convertToStatic(macAddress, hostname, ipAddress) {
+    app.convertToStatic(macAddress, hostname, ipAddress);
+}
+
+function showLeaseDetails(macAddress) {
+    app.showLeaseDetails(macAddress);
 }
 
 function restartService() {
@@ -271,4 +504,22 @@ function restartService() {
 
 function logout() {
     app.logout();
+}
+
+// Auto-refresh functionality
+function enableAutoRefresh() {
+    setInterval(() => {
+        if (app.token) {
+            // Only refresh if we're on the dashboard or leases page
+            const currentSection = document.querySelector('.content-section[style="display: block;"], .content-section:not([style*="display: none"])');
+            if (currentSection) {
+                const sectionId = currentSection.id;
+                if (sectionId === 'dashboard-section') {
+                    app.loadDashboard();
+                } else if (sectionId === 'leases-section') {
+                    app.loadLeases();
+                }
+            }
+        }
+    }, 30000); // Refresh every 30 seconds
 }
