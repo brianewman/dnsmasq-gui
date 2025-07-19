@@ -1,0 +1,84 @@
+/* Custom styles for DNSmasq GUI */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.content-section {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    margin-bottom: 1rem;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Status indicators */
+.status-running {
+    color: #198754 !important;
+}
+
+.status-stopped {
+    color: #dc3545 !important;
+}
+
+.status-unknown {
+    color: #6c757d !important;
+}
+
+/* Form styling */
+.dhcp-range-item, .dhcp-option-item, .dns-record-item {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: white;
+}
+
+.remove-btn {
+    color: #dc3545;
+    cursor: pointer;
+}
+
+.remove-btn:hover {
+    color: #b02a37;
+}
+
+/* Table improvements */
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+}

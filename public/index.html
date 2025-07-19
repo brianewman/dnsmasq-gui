@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNSmasq GUI - Network Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-router-fill me-2"></i>
+                DNSmasq GUI
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3" id="username-display"></span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2">
+                <div class="list-group" id="sidebar">
+                    <a href="#dashboard" class="list-group-item list-group-item-action active" data-section="dashboard">
+                        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                    </a>
+                    <a href="#dhcp" class="list-group-item list-group-item-action" data-section="dhcp">
+                        <i class="bi bi-ethernet me-2"></i>DHCP Settings
+                    </a>
+                    <a href="#leases" class="list-group-item list-group-item-action" data-section="leases">
+                        <i class="bi bi-list-ul me-2"></i>DHCP Leases
+                    </a>
+                    <a href="#dns" class="list-group-item list-group-item-action" data-section="dns">
+                        <i class="bi bi-globe me-2"></i>DNS Records
+                    </a>
+                    <a href="#network" class="list-group-item list-group-item-action" data-section="network">
+                        <i class="bi bi-diagram-3 me-2"></i>Network Interfaces
+                    </a>
+                    <a href="#settings" class="list-group-item list-group-item-action" data-section="settings">
+                        <i class="bi bi-gear me-2"></i>Advanced Settings
+                    </a>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <div class="col-md-9 col-lg-10">
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="content-section">
+                    <h2>Dashboard</h2>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-activity text-success"></i>
+                                        Service Status
+                                    </h5>
+                                    <p class="card-text" id="service-status">Loading...</p>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="restartService()">
+                                        <i class="bi bi-arrow-clockwise"></i> Restart
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-people text-info"></i>
+                                        Active Leases
+                                    </h5>
+                                    <p class="card-text" id="active-leases-count">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-bookmark text-warning"></i>
+                                        Static Reservations
+                                    </h5>
+                                    <p class="card-text" id="static-leases-count">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DHCP Settings Section -->
+                <div id="dhcp-section" class="content-section" style="display: none;">
+                    <h2>DHCP Configuration</h2>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">DHCP Ranges</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="dhcp-ranges-container"></div>
+                            <button class="btn btn-success btn-sm" onclick="addDhcpRange()">
+                                <i class="bi bi-plus"></i> Add Range
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">DHCP Options</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="dhcp-options-container"></div>
+                            <button class="btn btn-success btn-sm" onclick="addDhcpOption()">
+                                <i class="bi bi-plus"></i> Add Option
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DHCP Leases Section -->
+                <div id="leases-section" class="content-section" style="display: none;">
+                    <h2>DHCP Leases</h2>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="leases-table">
+                                    <thead>
+                                        <tr>
+                                            <th>IP Address</th>
+                                            <th>MAC Address</th>
+                                            <th>Hostname</th>
+                                            <th>Expires</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="leases-tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DNS Records Section -->
+                <div id="dns-section" class="content-section" style="display: none;">
+                    <h2>DNS Records</h2>
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">DNS Entries</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="dns-records-container"></div>
+                            <button class="btn btn-success btn-sm" onclick="addDnsRecord()">
+                                <i class="bi bi-plus"></i> Add DNS Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Interfaces Section -->
+                <div id="network-section" class="content-section" style="display: none;">
+                    <h2>Network Interfaces</h2>
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="network-interfaces-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings Section -->
+                <div id="settings-section" class="content-section" style="display: none;">
+                    <h2>Advanced Settings</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">General Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="general-settings-form">
+                                        <div class="mb-3">
+                                            <label for="domain-name" class="form-label">Domain Name</label>
+                                            <input type="text" class="form-control" id="domain-name" placeholder="example.local">
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="expand-hosts">
+                                                <label class="form-check-label" for="expand-hosts">
+                                                    Expand hosts
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="cache-size" class="form-label">Cache Size</label>
+                                            <input type="number" class="form-control" id="cache-size" value="150">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Upstream DNS Servers</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="upstream-servers-container"></div>
+                                    <button class="btn btn-success btn-sm" onclick="addUpstreamServer()">
+                                        <i class="bi bi-plus"></i> Add Server
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">DNSmasq GUI Login</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <div id="login-error" class="alert alert-danger" style="display: none;"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="login()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+# DNSmasq Configuration for Multi-Network DHCP with Relay Support
+# Generated for dnsmasq-gui project
+# This configuration demonstrates the key features to be managed by the GUI
+
+# Basic DNS settings
+domain=local.lan
+expand-hosts
+local=/local.lan/
+
+# Cache settings
+cache-size=1000
+neg-ttl=3600
+local-ttl=60
+
+# Listen on specific interfaces
+interface=eth0
+interface=wlan0
+bind-interfaces
+
+# DHCP authoritative - we are the only DHCP server on these networks
+dhcp-authoritative
+
+# Default lease time
+dhcp-leasetime=24h
+
+# DHCP ranges for multiple networks
+# Main LAN (192.168.1.0/24)
+dhcp-range=set:lan,192.168.1.100,192.168.1.200,255.255.255.0,24h
+
+# Guest network (192.168.10.0/24)  
+dhcp-range=set:guest,192.168.10.50,192.168.10.100,255.255.255.0,12h
+
+# IoT network (192.168.20.0/24)
+dhcp-range=set:iot,192.168.20.100,192.168.20.150,255.255.255.0,24h
+
+# DHCP relay configuration (if relay is needed)
+# dhcp-relay=192.168.1.1,192.168.2.0
+
+# Static DHCP reservations
+dhcp-host=aa:bb:cc:dd:ee:ff,192.168.1.10,server.local.lan,set:lan
+dhcp-host=11:22:33:44:55:66,192.168.1.20,printer.local.lan,set:lan
+dhcp-host=77:88:99:aa:bb:cc,192.168.10.10,guest-device.local.lan,set:guest
+
+# DHCP options for different network tags
+# Gateway and DNS for main LAN
+dhcp-option=tag:lan,3,192.168.1.1
+dhcp-option=tag:lan,6,192.168.1.1,8.8.8.8
+
+# Gateway and DNS for guest network
+dhcp-option=tag:guest,3,192.168.10.1
+dhcp-option=tag:guest,6,192.168.10.1
+
+# Gateway and DNS for IoT network  
+dhcp-option=tag:iot,3,192.168.20.1
+dhcp-option=tag:iot,6,192.168.20.1
+
+# Additional DHCP options
+dhcp-option=tag:lan,42,192.168.1.1        # NTP server
+dhcp-option=tag:lan,15,local.lan           # Domain name
+dhcp-option=tag:lan,119,local.lan          # Domain search list
+
+# DNS record types examples
+# A records
+address=/nas.local.lan/192.168.1.100
+address=/router.local.lan/192.168.1.1
+address=/homeassistant.local.lan/192.168.20.50
+
+# CNAME records
+cname=nas,nas.local.lan
+cname=ha,homeassistant.local.lan
+
+# MX record (handled via additional config file in /etc/dnsmasq.d/)
+# mx-host=local.lan,mail.local.lan,10
+
+# PTR records for reverse DNS
+ptr-record=1.1.168.192.in-addr.arpa,router.local.lan
+ptr-record=100.1.168.192.in-addr.arpa,nas.local.lan
+
+# Upstream DNS servers
+server=8.8.8.8
+server=8.8.4.4
+server=1.1.1.1
+
+# Security settings
+stop-dns-rebind
+rebind-localhost-ok
+
+# Logging (useful for debugging)
+log-queries
+log-dhcp
+log-facility=/var/log/dnsmasq.log
+
+# Additional host files
+addn-hosts=/etc/dnsmasq.hosts
+
+# Enable TFTP for network booting (optional)
+# enable-tftp
+# tftp-root=/var/ftpd
+
+# DHCP boot options for PXE (optional)
+# dhcp-boot=pxelinux.0
+
+# Ignore certain clients
+# dhcp-ignore=tag:!known
+
+# Bogus private reverse lookups
+bogus-priv
+
+# Don't read /etc/hosts
+# no-hosts
+
+# Don't read /etc/resolv.conf  
+# no-resolv
+
+# Don't poll /etc/resolv.conf for changes
+no-poll

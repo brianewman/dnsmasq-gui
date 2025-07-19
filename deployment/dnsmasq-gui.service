@@ -1,0 +1,32 @@
+[Unit]
+Description=DNSmasq GUI Web Interface
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=dnsmasq-gui
+Group=dnsmasq-gui
+WorkingDirectory=/opt/dnsmasq-gui
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=-/opt/dnsmasq-gui/.env
+
+# Security settings (relaxed for file access)
+NoNewPrivileges=true
+PrivateTmp=false
+ProtectSystem=false
+ProtectHome=false
+ReadWritePaths=/etc/dnsmasq.conf /etc/dnsmasq.d /var/lib/dhcp /var/log
+
+[Install]
+WantedBy=multi-user.target
