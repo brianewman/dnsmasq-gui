@@ -99,23 +99,6 @@ ssh ${PI_USER}@${PI_HOST} << EOF
     echo "🔧 Setting up static leases configuration..."
     bash ${APP_DIR}/deployment/setup-static-leases.sh
 
-    # Install sudoers configuration for service restart functionality
-    echo "🔧 Installing sudoers configuration..."
-    if [ -f "${APP_DIR}/deployment/dnsmasq-gui-sudoers" ]; then
-        sudo cp ${APP_DIR}/deployment/dnsmasq-gui-sudoers /etc/sudoers.d/dnsmasq-gui
-        sudo chmod 0440 /etc/sudoers.d/dnsmasq-gui
-        
-        # Validate the sudoers file
-        if sudo visudo -c -f /etc/sudoers.d/dnsmasq-gui >/dev/null 2>&1; then
-            echo "✅ Sudoers configuration installed successfully"
-        else
-            echo "⚠️  Warning: Invalid sudoers configuration, removing it"
-            sudo rm -f /etc/sudoers.d/dnsmasq-gui
-        fi
-    else
-        echo "⚠️  Warning: Sudoers configuration file not found in deployment"
-    fi
-
     # Install restart handler system
     echo "🔧 Setting up restart handler..."
     if [ -f "${APP_DIR}/deployment/dnsmasq-restart-handler.sh" ]; then
