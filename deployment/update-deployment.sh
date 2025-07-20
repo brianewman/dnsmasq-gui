@@ -71,6 +71,23 @@ echo "Updating systemd service..."
 cp "$INSTALL_DIR/deployment/dnsmasq-gui.service" /etc/systemd/system/
 systemctl daemon-reload
 
+# Install sudoers configuration for service restart functionality
+echo "Installing sudoers configuration..."
+if [ -f "$INSTALL_DIR/deployment/dnsmasq-gui-sudoers" ]; then
+    cp "$INSTALL_DIR/deployment/dnsmasq-gui-sudoers" /etc/sudoers.d/dnsmasq-gui
+    chmod 0440 /etc/sudoers.d/dnsmasq-gui
+    
+    # Validate the sudoers file
+    if visudo -c -f /etc/sudoers.d/dnsmasq-gui >/dev/null 2>&1; then
+        echo "✓ Sudoers configuration installed successfully"
+    else
+        echo "⚠ Warning: Invalid sudoers configuration, removing it"
+        rm -f /etc/sudoers.d/dnsmasq-gui
+    fi
+else
+    echo "⚠ Warning: Sudoers configuration file not found in deployment"
+fi
+
 # Enable and start service
 echo "Starting $SERVICE_NAME service..."
 systemctl enable $SERVICE_NAME

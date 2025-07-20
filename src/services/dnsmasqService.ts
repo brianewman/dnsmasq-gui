@@ -200,12 +200,18 @@ export class DnsmasqService {
 
   async restart(): Promise<void> {
     try {
-      // Try without sudo first
-      await execAsync('systemctl restart dnsmasq');
+      // Try to restart with sudo (requires proper sudoers configuration)
+      await execAsync('sudo systemctl restart dnsmasq');
+      console.log('DNSmasq service restarted successfully');
     } catch (error: any) {
-      console.log('Failed to restart dnsmasq without sudo, this may require manual restart:', error.message);
-      // Instead of throwing an error, let's provide a helpful message
-      throw new Error('Service restart requires elevated permissions. Please restart dnsmasq manually: sudo systemctl restart dnsmasq');
+      console.log('Failed to restart dnsmasq service:', error.message);
+      
+      // Check if it's a sudo permission issue
+      if (error.message.includes('sudo') || error.message.includes('privileges') || error.message.includes('password')) {
+        throw new Error('Service restart requires elevated permissions. The web service needs sudo access to restart DNSmasq. Please contact your system administrator.');
+      } else {
+        throw new Error(`Failed to restart DNSmasq service: ${error.message}`);
+      }
     }
   }
 
