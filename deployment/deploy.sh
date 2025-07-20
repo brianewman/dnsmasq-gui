@@ -99,6 +99,42 @@ ssh ${PI_USER}@${PI_HOST} << EOF
     echo "🔧 Setting up static leases configuration..."
     bash ${APP_DIR}/deployment/setup-static-leases.sh
 
+    # Install sudoers configuration for service restart functionality
+    echo "🔧 Installing sudoers configuration..."
+    if [ -f "${APP_DIR}/deployment/dnsmasq-gui-sudoers" ]; then
+        sudo cp ${APP_DIR}/deployment/dnsmasq-gui-sudoers /etc/sudoers.d/dnsmasq-gui
+        sudo chmod 0440 /etc/sudoers.d/dnsmasq-gui
+        
+        # Validate the sudoers file
+        if sudo visudo -c -f /etc/sudoers.d/dnsmasq-gui >/dev/null 2>&1; then
+            echo "✅ Sudoers configuration installed successfully"
+        else
+            echo "⚠️  Warning: Invalid sudoers configuration, removing it"
+            sudo rm -f /etc/sudoers.d/dnsmasq-gui
+        fi
+    else
+        echo "⚠️  Warning: Sudoers configuration file not found in deployment"
+    fi
+
+    # Install restart handler system
+    echo "🔧 Setting up restart handler..."
+    if [ -f "${APP_DIR}/deployment/dnsmasq-restart-handler.sh" ]; then
+        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.sh ${APP_DIR}/restart-handler.sh
+        sudo chmod +x ${APP_DIR}/restart-handler.sh
+        
+        # Install systemd service and timer
+        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.service /etc/systemd/system/
+        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.timer /etc/systemd/system/
+        
+        sudo systemctl daemon-reload
+        sudo systemctl enable dnsmasq-restart-handler.timer
+        sudo systemctl start dnsmasq-restart-handler.timer
+        
+        echo "✅ Restart handler installed and enabled"
+    else
+        echo "⚠️  Warning: Restart handler files not found in deployment"
+    fi
+
     # Test the application before starting the service
     echo "🧪 Testing application startup..."
     cd ${APP_DIR}
