@@ -95,6 +95,10 @@ ssh ${PI_USER}@${PI_HOST} << EOF
     sudo chmod +x ${APP_DIR}/troubleshoot.sh
     sudo chown dnsmasq-gui:dnsmasq-gui ${APP_DIR}/troubleshoot.sh
 
+    # Set up static leases configuration
+    echo "🔧 Setting up static leases configuration..."
+    bash ${APP_DIR}/deployment/setup-static-leases.sh
+
     # Test the application before starting the service
     echo "🧪 Testing application startup..."
     cd ${APP_DIR}

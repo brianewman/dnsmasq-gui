@@ -232,9 +232,14 @@ class DnsmasqGUI {
 
     async loadLeases() {
         try {
-            const response = await this.apiCall('/dnsmasq/leases');
-            if (response.success) {
-                this.renderLeases(response.data);
+            // Load both leases and static config in parallel
+            const [leasesResponse, configResponse] = await Promise.all([
+                this.apiCall('/dnsmasq/leases'),
+                this.apiCall('/dnsmasq/config')
+            ]);
+            
+            if (leasesResponse.success && configResponse.success) {
+                this.renderLeases(leasesResponse.data, configResponse.data.staticLeases || []);
             } else {
                 document.getElementById('leases-tbody').innerHTML = 
                     '<tr><td colspan="5" class="text-center text-muted">Failed to load leases</td></tr>';
@@ -246,7 +251,7 @@ class DnsmasqGUI {
         }
     }
 
-    renderLeases(leases) {
+    renderLeases(leases, staticLeases = []) {
         const tbody = document.getElementById('leases-tbody');
         tbody.innerHTML = '';
 
@@ -258,6 +263,17 @@ class DnsmasqGUI {
         leases.forEach(lease => {
             const row = document.createElement('tr');
             
+            // Check if this lease has a static reservation
+            const staticLease = staticLeases.find(staticLease => 
+                staticLease.macAddress.toLowerCase() === lease.macAddress.toLowerCase()
+            );
+            const isStatic = !!staticLease;
+            
+            // Use hostname from static lease if available, otherwise use DHCP lease hostname
+            const displayHostname = isStatic && staticLease.hostname ? 
+                staticLease.hostname : 
+                (lease.hostname && lease.hostname !== '*' ? lease.hostname : '<em>Unknown</em>');
+            
             // Calculate time remaining
             const expiry = new Date(lease.expiry);
             const now = new Date();
@@ -265,6 +281,11 @@ class DnsmasqGUI {
                 this.formatTimeRemaining(expiry - now) : 
                 '<span class="text-danger">Expired</span>';
             
+            // Add visual indicator for static leases
+            const staticBadge = isStatic ? '<span class="badge bg-success ms-2">Static</span>' : '';
+            const rowClass = isStatic ? 'table-success' : '';
+            
+            row.className = rowClass;
             row.innerHTML = `
                 <td>
                     <strong>${lease.ipAddress}</strong>
@@ -273,21 +294,23 @@ class DnsmasqGUI {
                     <code class="small">${lease.macAddress}</code>
                 </td>
                 <td>
-                    <span class="text-primary">${lease.hostname || '<em>Unknown</em>'}</span>
+                    <span class="text-primary">${displayHostname}</span>${staticBadge}
                 </td>
                 <td>
                     <small class="text-muted">
-                        ${expiry.toLocaleString()}<br>
-                        (${timeRemaining})
+                        ${isStatic ? 'Static Reservation' : `${expiry.toLocaleString()}<br>(${timeRemaining})`}
                     </small>
                 </td>
                 <td>
                     <div class="btn-group" role="group">
-                        <button class="btn btn-sm btn-outline-primary" 
+                        ${isStatic ? 
+                            '<button class="btn btn-sm btn-success" disabled title="Already a static reservation"><i class="bi bi-bookmark-check"></i> Static</button>' :
+                            `<button class="btn btn-sm btn-outline-primary" 
                                 onclick="app.convertToStatic('${lease.macAddress}', '${lease.hostname || ''}', '${lease.ipAddress}')"
                                 title="Convert to static reservation">
                             <i class="bi bi-bookmark"></i> Make Static
-                        </button>
+                        </button>`
+                        }
                         <button class="btn btn-sm btn-outline-info" 
                                 onclick="app.showLeaseDetails('${lease.macAddress}')"
                                 title="Show lease details">

@@ -20,15 +20,67 @@ export class DnsmasqService {
       // For development, return mock data if the config file doesn't exist
       if (!await fs.pathExists(this.configPath)) {
         console.log('DNSmasq config file not found, returning mock data for development');
-        return this.getMockConfig();
+        const mockConfig = this.getMockConfig();
+        // Try to load real static leases if they exist
+        const realStaticLeases = await this.loadStaticLeases();
+        if (realStaticLeases.length > 0) {
+          mockConfig.staticLeases = realStaticLeases;
+        }
+        return mockConfig;
       }
       
       const configContent = await fs.readFile(this.configPath, 'utf-8');
-      return this.parseConfig(configContent);
+      const config = this.parseConfig(configContent);
+      
+      // Load static leases from our separate file
+      const staticLeases = await this.loadStaticLeases();
+      if (staticLeases.length > 0) {
+        config.staticLeases = staticLeases;
+      }
+      
+      return config;
     } catch (error) {
       console.error('Failed to read dnsmasq config:', error);
       console.log('Returning mock data for development');
       return this.getMockConfig();
+    }
+  }
+
+  private async loadStaticLeases(): Promise<StaticLease[]> {
+    try {
+      const staticLeasesPath = '/tmp/dnsmasq-static-leases.conf';
+      
+      if (!await fs.pathExists(staticLeasesPath)) {
+        return [];
+      }
+      
+      const content = await fs.readFile(staticLeasesPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const staticLeases: StaticLease[] = [];
+      
+      for (const line of lines) {
+        if (line.startsWith('dhcp-host=')) {
+          const parts = line.substring('dhcp-host='.length).split(',');
+          if (parts.length >= 2) {
+            const macAddress = parts[0];
+            const ipAddress = parts[1];
+            const hostname = parts[2] || '';
+            
+            staticLeases.push({
+              id: `static-${macAddress.replace(/:/g, '')}`,
+              macAddress,
+              ipAddress,
+              hostname
+            });
+          }
+        }
+      }
+      
+      console.log(`Loaded ${staticLeases.length} static leases from ${staticLeasesPath}`);
+      return staticLeases;
+    } catch (error) {
+      console.error('Failed to load static leases:', error);
+      return [];
     }
   }
 
@@ -99,20 +151,38 @@ export class DnsmasqService {
 
   async updateConfig(newConfig: DnsmasqConfig): Promise<void> {
     try {
-      const configContent = this.generateConfigContent(newConfig);
+      // Instead of writing to the main config file, write static leases to a separate file
+      // that can be included in the main dnsmasq configuration
+      await this.updateStaticLeases(newConfig.staticLeases);
       
-      // Backup current config
-      await fs.copy(this.configPath, `${this.configPath}.backup.${Date.now()}`);
-      
-      // Write new config
-      await fs.writeFile(this.configPath, configContent);
-      
-      // Validate configuration
-      await this.validateConfig();
+      console.log('Static leases updated successfully');
       
     } catch (error) {
       console.error('Failed to update dnsmasq config:', error);
       throw new Error('Could not update dnsmasq configuration');
+    }
+  }
+
+  private async updateStaticLeases(staticLeases: StaticLease[]): Promise<void> {
+    try {
+      const staticLeasesPath = '/tmp/dnsmasq-static-leases.conf';
+      let content = '# Static DHCP leases managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
+      
+      for (const lease of staticLeases) {
+        // Format: dhcp-host=mac,ip,hostname,lease-time
+        const hostname = lease.hostname ? `,${lease.hostname}` : '';
+        content += `dhcp-host=${lease.macAddress},${lease.ipAddress}${hostname}\n`;
+      }
+      
+      await fs.writeFile(staticLeasesPath, content);
+      console.log(`Updated ${staticLeases.length} static leases in ${staticLeasesPath}`);
+      
+      // Create a flag to trigger dnsmasq restart so it picks up the new static leases
+      await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
+      
+    } catch (error) {
+      console.error('Failed to update static leases file:', error);
+      throw error;
     }
   }
 
