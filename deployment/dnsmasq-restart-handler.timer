@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DNSmasq restart handler every 5 seconds
+Requires=dnsmasq-restart-handler.service
+
+[Timer]
+OnCalendar=*:*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target

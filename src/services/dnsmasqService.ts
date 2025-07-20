@@ -200,18 +200,52 @@ export class DnsmasqService {
 
   async restart(): Promise<void> {
     try {
-      // Try to restart with sudo (requires proper sudoers configuration)
-      await execAsync('sudo systemctl restart dnsmasq');
-      console.log('DNSmasq service restarted successfully');
+      const restartFlag = '/tmp/dnsmasq-restart-requested';
+      const restartResult = '/tmp/dnsmasq-restart-result';
+      
+      // Clean up any existing result file
+      try {
+        await fs.unlink(restartResult);
+      } catch {
+        // File doesn't exist, that's fine
+      }
+      
+      // Create restart request flag
+      await fs.writeFile(restartFlag, new Date().toISOString());
+      console.log('DNSmasq restart requested via flag file');
+      
+      // Wait for the restart handler to process the request (max 10 seconds)
+      const maxWait = 10000; // 10 seconds
+      const pollInterval = 500; // 500ms
+      let waited = 0;
+      
+      while (waited < maxWait) {
+        try {
+          const result = await fs.readFile(restartResult, 'utf8');
+          if (result.trim() === 'success') {
+            console.log('DNSmasq service restarted successfully');
+            return;
+          } else if (result.trim() === 'error') {
+            throw new Error('DNSmasq restart failed on the system');
+          }
+        } catch (error: any) {
+          if (error.code !== 'ENOENT') {
+            // Some other error reading the file
+            throw error;
+          }
+          // File doesn't exist yet, keep waiting
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waited += pollInterval;
+      }
+      
+      // If we get here, the restart timed out
+      throw new Error('Restart request timed out. The restart handler may not be running.');
+      
     } catch (error: any) {
       console.log('Failed to restart dnsmasq service:', error.message);
-      
-      // Check if it's a sudo permission issue
-      if (error.message.includes('sudo') || error.message.includes('privileges') || error.message.includes('password')) {
-        throw new Error('Service restart requires elevated permissions. The web service needs sudo access to restart DNSmasq. Please contact your system administrator.');
-      } else {
-        throw new Error(`Failed to restart DNSmasq service: ${error.message}`);
-      }
+      throw new Error(`Failed to restart DNSmasq service: ${error.message}`);
     }
   }
 

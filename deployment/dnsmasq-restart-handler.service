@@ -1,0 +1,12 @@
+[Unit]
+Description=DNSmasq GUI Restart Handler
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/dnsmasq-gui/restart-handler.sh
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

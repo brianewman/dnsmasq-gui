@@ -88,6 +88,25 @@ else
     echo "⚠ Warning: Sudoers configuration file not found in deployment"
 fi
 
+# Install restart handler system
+echo "Installing restart handler..."
+if [ -f "$INSTALL_DIR/deployment/dnsmasq-restart-handler.sh" ]; then
+    cp "$INSTALL_DIR/deployment/dnsmasq-restart-handler.sh" /opt/dnsmasq-gui/restart-handler.sh
+    chmod +x /opt/dnsmasq-gui/restart-handler.sh
+    
+    # Install systemd service and timer
+    cp "$INSTALL_DIR/deployment/dnsmasq-restart-handler.service" /etc/systemd/system/
+    cp "$INSTALL_DIR/deployment/dnsmasq-restart-handler.timer" /etc/systemd/system/
+    
+    systemctl daemon-reload
+    systemctl enable dnsmasq-restart-handler.timer
+    systemctl start dnsmasq-restart-handler.timer
+    
+    echo "✓ Restart handler installed and enabled"
+else
+    echo "⚠ Warning: Restart handler files not found in deployment"
+fi
+
 # Enable and start service
 echo "Starting $SERVICE_NAME service..."
 systemctl enable $SERVICE_NAME
