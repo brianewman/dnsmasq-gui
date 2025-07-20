@@ -235,7 +235,7 @@ class DnsmasqGUI {
 
     initModalEventListeners() {
         // Handle modal accessibility - prevent aria-hidden focus issues
-        const modals = ['reservationModal', 'deleteReservationModal', 'loginModal'];
+        const modals = ['reservationModal', 'deleteReservationModal', 'loginModal', 'rangeModal', 'deleteRangeModal', 'optionModal', 'deleteOptionModal'];
         
         modals.forEach(modalId => {
             const modalElement = document.getElementById(modalId);
@@ -279,9 +279,6 @@ class DnsmasqGUI {
             case 'dashboard':
                 this.loadDashboard();
                 break;
-            case 'dhcp':
-                this.loadDhcpConfig();
-                break;
             case 'leases':
                 this.loadLeases();
                 // Initialize sorting headers after the section is shown and data is loaded
@@ -289,6 +286,12 @@ class DnsmasqGUI {
                 break;
             case 'reservations':
                 this.loadReservations();
+                break;
+            case 'ranges':
+                this.loadRanges();
+                break;
+            case 'options':
+                this.loadOptions();
                 break;
             case 'dns':
                 this.loadDnsConfig();
@@ -1217,10 +1220,6 @@ class DnsmasqGUI {
     }
 
     // Placeholder methods for other sections
-    loadDhcpConfig() {
-        console.log('Loading DHCP configuration...');
-    }
-
     loadDnsConfig() {
         console.log('Loading DNS configuration...');
     }
@@ -1629,6 +1628,506 @@ class DnsmasqGUI {
             alert('Network error occurred while deleting reservation');
         }
     }
+
+    // DHCP Ranges management methods
+    async loadRanges() {
+        try {
+            const response = await fetch('/api/dnsmasq/ranges', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            const result = await response.json();
+            
+            if (!result.success) {
+                console.error('Failed to load DHCP ranges:', result.error);
+                return;
+            }
+            
+            this.currentRanges = result.data || [];
+            this.renderRanges();
+            this.updateRangesCount();
+        } catch (error) {
+            console.error('Error loading DHCP ranges:', error);
+        }
+    }
+
+    renderRanges() {
+        const tableBody = document.getElementById('ranges-table-body');
+        if (!tableBody) return;
+
+        if (!this.currentRanges || this.currentRanges.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted">
+                        <i class="bi bi-info-circle me-2"></i>No DHCP ranges configured
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = this.currentRanges.map(range => {
+            const status = this.getRangeStatus(range);
+            const statusClass = status === 'Active' ? 'text-success' : 'text-warning';
+            
+            return `
+                <tr>
+                    <td><code>${range.startIp}</code></td>
+                    <td><code>${range.endIp}</code></td>
+                    <td><code>${range.netmask || '255.255.255.0'}</code></td>
+                    <td>${range.leaseTime}</td>
+                    <td>${range.tag ? `<span class="badge bg-secondary">${range.tag}</span>` : '<span class="text-muted">-</span>'}</td>
+                    <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-primary btn-sm" onclick="app.editRange('${range.id}')" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="app.confirmDeleteRange('${range.id}')" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    getRangeStatus(range) {
+        // For now, assume all ranges are active - in a real implementation, 
+        // you might check if the range conflicts or has other issues
+        return 'Active';
+    }
+
+    getNetworkName(startIp, endIp, tag) {
+        // Extract network from IP range
+        const startParts = startIp.split('.');
+        const networkBase = `${startParts[0]}.${startParts[1]}.${startParts[2]}.0/24`;
+        
+        if (tag) {
+            return `${tag} (${networkBase})`;
+        }
+        return networkBase;
+    }
+
+    updateRangesCount() {
+        const countElement = document.getElementById('ranges-count');
+        if (countElement && this.currentRanges) {
+            countElement.textContent = this.currentRanges.length.toString();
+        }
+    }
+
+    showAddRangeModal() {
+        // Clear form
+        document.getElementById('range-form').reset();
+        document.getElementById('range-id').value = '';
+        document.getElementById('range-modal-title').textContent = 'Add DHCP Range';
+        document.getElementById('range-error').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('rangeModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-range-btn').onclick = () => this.saveRange();
+    }
+
+    editRange(id) {
+        // Find the range
+        const range = this.currentRanges?.find(r => r.id === id);
+        if (!range) {
+            alert('Range not found');
+            return;
+        }
+
+        // Populate form
+        document.getElementById('range-id').value = range.id;
+        document.getElementById('range-start-ip').value = range.startIp;
+        document.getElementById('range-end-ip').value = range.endIp;
+        document.getElementById('range-lease-time').value = range.leaseTime || '12h';
+        document.getElementById('range-tag').value = range.tag || '';
+        document.getElementById('range-netmask').value = range.netmask || '255.255.255.0';
+        document.getElementById('range-modal-title').textContent = 'Edit DHCP Range';
+        document.getElementById('range-error').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('rangeModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-range-btn').onclick = () => this.saveRange();
+    }
+
+    async saveRange() {
+        const form = document.getElementById('range-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const id = document.getElementById('range-id').value;
+        const startIp = document.getElementById('range-start-ip').value.trim();
+        const endIp = document.getElementById('range-end-ip').value.trim();
+        const leaseTime = document.getElementById('range-lease-time').value.trim();
+        const tag = document.getElementById('range-tag').value.trim();
+        const netmask = document.getElementById('range-netmask').value;
+
+        const errorDiv = document.getElementById('range-error');
+        
+        try {
+            const isEdit = id !== '';
+            const url = isEdit ? `/api/dnsmasq/ranges/${id}` : '/api/dnsmasq/ranges';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    startIp,
+                    endIp,
+                    leaseTime,
+                    tag: tag || undefined,
+                    netmask
+                })
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                errorDiv.textContent = result.error || 'Failed to save range';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('rangeModal'));
+            modal.hide();
+            
+            this.loadRanges();
+            
+            // Show success message
+            const action = isEdit ? 'updated' : 'created';
+            alert(`Range ${action} successfully!`);
+            
+        } catch (error) {
+            console.error('Error saving range:', error);
+            errorDiv.textContent = 'Network error occurred while saving range';
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    confirmDeleteRange(id) {
+        const range = this.currentRanges?.find(r => r.id === id);
+        if (!range) {
+            alert('Range not found');
+            return;
+        }
+
+        // Populate delete modal
+        document.getElementById('delete-range-start').textContent = range.startIp;
+        document.getElementById('delete-range-end').textContent = range.endIp;
+        document.getElementById('delete-range-tag').textContent = range.tag || 'None';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('deleteRangeModal'));
+        modal.show();
+        
+        // Setup delete confirmation
+        document.getElementById('confirm-delete-range-btn').onclick = () => this.deleteRange(id);
+    }
+
+    async deleteRange(id) {
+        try {
+            const response = await fetch(`/api/dnsmasq/ranges/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                alert(`Failed to delete range: ${result.error}`);
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteRangeModal'));
+            modal.hide();
+            
+            this.loadRanges();
+            alert('Range deleted successfully!');
+            
+        } catch (error) {
+            console.error('Error deleting range:', error);
+            alert('Network error occurred while deleting range');
+        }
+    }
+
+    // DHCP Options management methods
+    async loadOptions() {
+        try {
+            const response = await fetch('/api/dnsmasq/options', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            const result = await response.json();
+            
+            if (!result.success) {
+                console.error('Failed to load DHCP options:', result.error);
+                return;
+            }
+            
+            this.currentOptions = result.data || [];
+            this.renderOptions();
+            this.updateOptionsCount();
+        } catch (error) {
+            console.error('Error loading DHCP options:', error);
+        }
+    }
+
+    renderOptions() {
+        const tableBody = document.getElementById('options-table-body');
+        if (!tableBody) return;
+
+        if (!this.currentOptions || this.currentOptions.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="bi bi-info-circle me-2"></i>No DHCP options configured
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = this.currentOptions.map(option => {
+            const optionName = this.getOptionName(option.option);
+            const status = 'Active'; // For now, assume all options are active
+            const statusClass = 'text-success';
+            
+            return `
+                <tr>
+                    <td><code>${option.option}</code> - ${optionName}</td>
+                    <td><code>${option.value}</code></td>
+                    <td>${option.tag ? `<span class="badge bg-secondary">${option.tag}</span>` : '<span class="text-muted">All</span>'}</td>
+                    <td>${optionName}</td>
+                    <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-primary btn-sm" onclick="app.editOption('${option.id}')" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="app.confirmDeleteOption('${option.id}')" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    getOptionName(optionNumber) {
+        const optionNames = {
+            '1': 'Subnet Mask',
+            '3': 'Router (Gateway)',
+            '6': 'Domain Name Server',
+            '15': 'Domain Name',
+            '28': 'Broadcast Address',
+            '42': 'NTP Servers',
+            '121': 'Classless Static Route'
+        };
+        return optionNames[optionNumber.toString()] || `Option ${optionNumber}`;
+    }
+
+    updateOptionsCount() {
+        const countElement = document.getElementById('options-count');
+        if (countElement && this.currentOptions) {
+            countElement.textContent = this.currentOptions.length.toString();
+        }
+    }
+
+    showAddOptionModal() {
+        // Clear form
+        document.getElementById('option-form').reset();
+        document.getElementById('option-id').value = '';
+        document.getElementById('option-modal-title').textContent = 'Add DHCP Option';
+        document.getElementById('option-error').style.display = 'none';
+        document.getElementById('option-custom-number').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('optionModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-option-btn').onclick = () => this.saveOption();
+        
+        // Setup custom option number toggle
+        document.getElementById('option-number').onchange = (e) => {
+            const customField = document.getElementById('option-custom-number');
+            if (e.target.value === 'custom') {
+                customField.style.display = 'block';
+                customField.required = true;
+            } else {
+                customField.style.display = 'none';
+                customField.required = false;
+            }
+        };
+    }
+
+    editOption(id) {
+        // Find the option
+        const option = this.currentOptions?.find(o => o.id === id);
+        if (!option) {
+            alert('Option not found');
+            return;
+        }
+
+        // Populate form
+        document.getElementById('option-id').value = option.id;
+        document.getElementById('option-number').value = option.option;
+        document.getElementById('option-value').value = option.value;
+        document.getElementById('option-tag').value = option.tag || '';
+        document.getElementById('option-description').value = ''; // We don't store description currently
+        document.getElementById('option-modal-title').textContent = 'Edit DHCP Option';
+        document.getElementById('option-error').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('optionModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-option-btn').onclick = () => this.saveOption();
+    }
+
+    async saveOption() {
+        const form = document.getElementById('option-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const id = document.getElementById('option-id').value;
+        const optionNumberField = document.getElementById('option-number');
+        const customNumberField = document.getElementById('option-custom-number');
+        const value = document.getElementById('option-value').value.trim();
+        const tag = document.getElementById('option-tag').value.trim();
+        const description = document.getElementById('option-description').value.trim();
+
+        let optionNumber;
+        if (optionNumberField.value === 'custom') {
+            optionNumber = parseInt(customNumberField.value);
+            if (!optionNumber || optionNumber < 1 || optionNumber > 254) {
+                const errorDiv = document.getElementById('option-error');
+                errorDiv.textContent = 'Custom option number must be between 1 and 254';
+                errorDiv.style.display = 'block';
+                return;
+            }
+        } else {
+            optionNumber = optionNumberField.value;
+        }
+
+        const errorDiv = document.getElementById('option-error');
+        
+        try {
+            const isEdit = id !== '';
+            const url = isEdit ? `/api/dnsmasq/options/${id}` : '/api/dnsmasq/options';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    optionNumber,
+                    value,
+                    tag: tag || undefined,
+                    description: description || undefined
+                })
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                errorDiv.textContent = result.error || 'Failed to save option';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('optionModal'));
+            modal.hide();
+            
+            this.loadOptions();
+            
+            // Show success message
+            const action = isEdit ? 'updated' : 'created';
+            alert(`Option ${action} successfully!`);
+            
+        } catch (error) {
+            console.error('Error saving option:', error);
+            errorDiv.textContent = 'Network error occurred while saving option';
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    confirmDeleteOption(id) {
+        const option = this.currentOptions?.find(o => o.id === id);
+        if (!option) {
+            alert('Option not found');
+            return;
+        }
+
+        // Populate delete modal
+        document.getElementById('delete-option-number').textContent = `${option.option} - ${this.getOptionName(option.option)}`;
+        document.getElementById('delete-option-value').textContent = option.value;
+        document.getElementById('delete-option-tag').textContent = option.tag || 'All clients';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('deleteOptionModal'));
+        modal.show();
+        
+        // Setup delete confirmation
+        document.getElementById('confirm-delete-option-btn').onclick = () => this.deleteOption(id);
+    }
+
+    async deleteOption(id) {
+        try {
+            const response = await fetch(`/api/dnsmasq/options/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                alert(`Failed to delete option: ${result.error}`);
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteOptionModal'));
+            modal.hide();
+            
+            this.loadOptions();
+            alert('Option deleted successfully!');
+            
+        } catch (error) {
+            console.error('Error deleting option:', error);
+            alert('Network error occurred while deleting option');
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -1698,6 +2197,10 @@ function enableAutoRefresh() {
                     app.loadLeases();
                 } else if (sectionId === 'reservations-section') {
                     app.loadReservations();
+                } else if (sectionId === 'ranges-section') {
+                    app.loadRanges();
+                } else if (sectionId === 'options-section') {
+                    app.loadOptions();
                 }
             }
         }

@@ -21,21 +21,43 @@ export class DnsmasqService {
       if (!await fs.pathExists(this.configPath)) {
         console.log('DNSmasq config file not found, returning mock data for development');
         const mockConfig = this.getMockConfig();
-        // Try to load real static leases if they exist
+        
+        // Try to load real data from separate files if they exist
         const realStaticLeases = await this.loadStaticLeases();
         if (realStaticLeases.length > 0) {
           mockConfig.staticLeases = realStaticLeases;
         }
+        
+        const realRanges = await this.loadRangesFromFile();
+        if (realRanges.length > 0) {
+          mockConfig.dhcpRanges = realRanges;
+        }
+        
+        const realOptions = await this.loadOptionsFromFile();
+        if (realOptions.length > 0) {
+          mockConfig.dhcpOptions = realOptions;
+        }
+        
         return mockConfig;
       }
       
       const configContent = await fs.readFile(this.configPath, 'utf-8');
       const config = this.parseConfig(configContent);
       
-      // Load static leases from our separate file
+      // Load data from our separate files
       const staticLeases = await this.loadStaticLeases();
       if (staticLeases.length > 0) {
         config.staticLeases = staticLeases;
+      }
+      
+      const ranges = await this.loadRangesFromFile();
+      if (ranges.length > 0) {
+        config.dhcpRanges = ranges;
+      }
+      
+      const options = await this.loadOptionsFromFile();
+      if (options.length > 0) {
+        config.dhcpOptions = options;
       }
       
       return config;
@@ -48,7 +70,7 @@ export class DnsmasqService {
 
   private async loadStaticLeases(): Promise<StaticLease[]> {
     try {
-      const staticLeasesPath = '/tmp/dnsmasq-static-leases.conf';
+      const staticLeasesPath = config.dnsmasq.staticLeasesConfigFile;
       
       if (!await fs.pathExists(staticLeasesPath)) {
         return [];
@@ -80,6 +102,109 @@ export class DnsmasqService {
       return staticLeases;
     } catch (error) {
       console.error('Failed to load static leases:', error);
+      return [];
+    }
+  }
+
+  private async loadRangesFromFile(): Promise<DhcpRange[]> {
+    try {
+      const rangesPath = config.dnsmasq.rangesConfigFile;
+      
+      if (!await fs.pathExists(rangesPath)) {
+        return [];
+      }
+      
+      const content = await fs.readFile(rangesPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const ranges: DhcpRange[] = [];
+      
+      for (const line of lines) {
+        if (line.startsWith('dhcp-range=')) {
+          const rangeValue = line.substring('dhcp-range='.length);
+          const parts = rangeValue.split(',');
+          
+          let startIp, endIp, netmask, leaseTime, tag;
+          let partIndex = 0;
+          
+          // Check if first part is a tag (format: set:tagname)
+          if (parts[0]?.startsWith('set:')) {
+            tag = parts[0].substring(4); // Remove 'set:' prefix
+            partIndex = 1;
+          }
+          
+          // Parse remaining parts: startIp, endIp, netmask, leaseTime
+          if (parts.length >= partIndex + 3) {
+            startIp = parts[partIndex];
+            endIp = parts[partIndex + 1];
+            netmask = parts[partIndex + 2];
+            leaseTime = parts[partIndex + 3] || '12h';
+            
+            ranges.push({
+              id: `range-${ranges.length}`,
+              startIp,
+              endIp,
+              netmask,
+              leaseTime,
+              tag
+            });
+          }
+        }
+      }
+      
+      console.log(`Loaded ${ranges.length} DHCP ranges from ${rangesPath}`);
+      return ranges;
+    } catch (error) {
+      console.error('Failed to load ranges from file:', error);
+      return [];
+    }
+  }
+
+  private async loadOptionsFromFile(): Promise<DhcpOption[]> {
+    try {
+      const optionsPath = config.dnsmasq.optionsConfigFile;
+      
+      if (!await fs.pathExists(optionsPath)) {
+        return [];
+      }
+      
+      const content = await fs.readFile(optionsPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const options: DhcpOption[] = [];
+      
+      for (const line of lines) {
+        if (line.startsWith('dhcp-option=')) {
+          const optionValue = line.substring('dhcp-option='.length);
+          let tag: string | undefined;
+          let remainingValue = optionValue;
+          
+          // Check if there's a tag prefix
+          if (optionValue.startsWith('tag:')) {
+            const tagEnd = optionValue.indexOf(',');
+            if (tagEnd !== -1) {
+              tag = optionValue.substring(4, tagEnd);
+              remainingValue = optionValue.substring(tagEnd + 1);
+            }
+          }
+          
+          const parts = remainingValue.split(',');
+          if (parts.length >= 2) {
+            const option = parts[0];
+            const value = parts.slice(1).join(','); // In case value contains commas
+            
+            options.push({
+              id: `option-${options.length}`,
+              option,
+              value,
+              tag
+            });
+          }
+        }
+      }
+      
+      console.log(`Loaded ${options.length} DHCP options from ${optionsPath}`);
+      return options;
+    } catch (error) {
+      console.error('Failed to load options from file:', error);
       return [];
     }
   }
@@ -151,11 +276,13 @@ export class DnsmasqService {
 
   async updateConfig(newConfig: DnsmasqConfig): Promise<void> {
     try {
-      // Instead of writing to the main config file, write static leases to a separate file
-      // that can be included in the main dnsmasq configuration
+      // Update static leases in a separate file
       await this.updateStaticLeases(newConfig.staticLeases);
       
-      console.log('Static leases updated successfully');
+      // Update DHCP ranges and options in separate configuration files
+      await this.updateRangesAndOptions(newConfig);
+      
+      console.log('Configuration updated successfully');
       
     } catch (error) {
       console.error('Failed to update dnsmasq config:', error);
@@ -163,9 +290,49 @@ export class DnsmasqService {
     }
   }
 
+  private async updateRangesAndOptions(dnsmasqConfig: DnsmasqConfig): Promise<void> {
+    try {
+      // Write DHCP ranges to a separate file
+      const rangesPath = config.dnsmasq.rangesConfigFile;
+      let rangesContent = '# DHCP ranges managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
+      
+      for (const range of dnsmasqConfig.dhcpRanges || []) {
+        let rangeStr = `dhcp-range=`;
+        // Add tag first if specified (DNSmasq standard format)
+        if (range.tag) rangeStr += `set:${range.tag},`;
+        rangeStr += `${range.startIp},${range.endIp}`;
+        // Add netmask (default to 255.255.255.0 if not specified)
+        rangeStr += `,${range.netmask || '255.255.255.0'}`;
+        rangeStr += `,${range.leaseTime}`;
+        rangesContent += `${rangeStr}\n`;
+      }
+      
+      await fs.writeFile(rangesPath, rangesContent);
+      console.log(`Updated ${dnsmasqConfig.dhcpRanges?.length || 0} DHCP ranges in ${rangesPath}`);
+      
+      // Write DHCP options to a separate file
+      const optionsPath = config.dnsmasq.optionsConfigFile;
+      let optionsContent = '# DHCP options managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
+      
+      for (const option of dnsmasqConfig.dhcpOptions || []) {
+        let optionStr = `dhcp-option=`;
+        if (option.tag) optionStr += `tag:${option.tag},`;
+        optionStr += `${option.option},${option.value}`;
+        optionsContent += `${optionStr}\n`;
+      }
+      
+      await fs.writeFile(optionsPath, optionsContent);
+      console.log(`Updated ${dnsmasqConfig.dhcpOptions?.length || 0} DHCP options in ${optionsPath}`);
+      
+    } catch (error) {
+      console.error('Failed to update ranges and options:', error);
+      throw error;
+    }
+  }
+
   private async updateStaticLeases(staticLeases: StaticLease[]): Promise<void> {
     try {
-      const staticLeasesPath = '/tmp/dnsmasq-static-leases.conf';
+      const staticLeasesPath = config.dnsmasq.staticLeasesConfigFile;
       let content = '# Static DHCP leases managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
       
       for (const lease of staticLeases) {
@@ -655,10 +822,13 @@ export class DnsmasqService {
     
     // DHCP ranges
     for (const range of config.dhcpRanges) {
-      let rangeStr = `dhcp-range=${range.startIp},${range.endIp}`;
-      if (range.netmask) rangeStr += `,${range.netmask}`;
+      let rangeStr = `dhcp-range=`;
+      // Add tag first if specified (DNSmasq standard format)
+      if (range.tag) rangeStr += `set:${range.tag},`;
+      rangeStr += `${range.startIp},${range.endIp}`;
+      // Add netmask (default to 255.255.255.0 if not specified)
+      rangeStr += `,${range.netmask || '255.255.255.0'}`;
       rangeStr += `,${range.leaseTime}`;
-      if (range.tag) rangeStr += `,set:${range.tag}`;
       lines.push(rangeStr);
     }
     
@@ -712,5 +882,171 @@ export class DnsmasqService {
     } else {
       return `${seconds}s`;
     }
+  }
+
+  // DHCP Ranges management methods
+  async getRanges(): Promise<DhcpRange[]> {
+    try {
+      const config = await this.getConfig();
+      return config.dhcpRanges || [];
+    } catch (error) {
+      console.error('Failed to get DHCP ranges:', error);
+      return [];
+    }
+  }
+
+  async createRange(range: Omit<DhcpRange, 'id'>): Promise<DhcpRange> {
+    const config = await this.getConfig();
+    
+    // Generate unique ID
+    const id = `range-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newRange: DhcpRange = { id, ...range };
+    
+    // Validate IP addresses
+    if (!this.isValidIP(range.startIp) || !this.isValidIP(range.endIp)) {
+      throw new Error('Invalid IP address format');
+    }
+    
+    // Add to config
+    if (!config.dhcpRanges) {
+      config.dhcpRanges = [];
+    }
+    config.dhcpRanges.push(newRange);
+    
+    // Update configuration file
+    await this.updateConfig(config);
+    
+    return newRange;
+  }
+
+  async updateRange(id: string, updates: Partial<Omit<DhcpRange, 'id'>>): Promise<DhcpRange> {
+    const config = await this.getConfig();
+    
+    if (!config.dhcpRanges) {
+      throw new Error('No DHCP ranges found');
+    }
+    
+    const rangeIndex = config.dhcpRanges.findIndex(range => range.id === id);
+    if (rangeIndex === -1) {
+      throw new Error('DHCP range not found');
+    }
+    
+    // Validate IP addresses if provided
+    if (updates.startIp && !this.isValidIP(updates.startIp)) {
+      throw new Error('Invalid start IP address format');
+    }
+    if (updates.endIp && !this.isValidIP(updates.endIp)) {
+      throw new Error('Invalid end IP address format');
+    }
+    
+    // Update range
+    config.dhcpRanges[rangeIndex] = { ...config.dhcpRanges[rangeIndex], ...updates };
+    
+    // Update configuration file
+    await this.updateConfig(config);
+    
+    return config.dhcpRanges[rangeIndex];
+  }
+
+  async deleteRange(id: string): Promise<void> {
+    const config = await this.getConfig();
+    
+    if (!config.dhcpRanges) {
+      throw new Error('No DHCP ranges found');
+    }
+    
+    const rangeIndex = config.dhcpRanges.findIndex(range => range.id === id);
+    if (rangeIndex === -1) {
+      throw new Error('DHCP range not found');
+    }
+    
+    // Remove range
+    config.dhcpRanges.splice(rangeIndex, 1);
+    
+    // Update configuration file
+    await this.updateConfig(config);
+  }
+
+  // DHCP Options management methods
+  async getOptions(): Promise<DhcpOption[]> {
+    try {
+      const config = await this.getConfig();
+      return config.dhcpOptions || [];
+    } catch (error) {
+      console.error('Failed to get DHCP options:', error);
+      return [];
+    }
+  }
+
+  async createOption(optionData: { optionNumber: number | string, value: string, tag?: string, description?: string }): Promise<DhcpOption> {
+    const config = await this.getConfig();
+    
+    // Generate unique ID
+    const id = `option-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newOption: DhcpOption = { id, option: optionData.optionNumber, value: optionData.value, tag: optionData.tag };
+    
+    // Add to config
+    if (!config.dhcpOptions) {
+      config.dhcpOptions = [];
+    }
+    config.dhcpOptions.push(newOption);
+    
+    // Update configuration file
+    await this.updateConfig(config);
+    
+    return newOption;
+  }
+
+  async updateOption(id: string, updates: Partial<{ optionNumber: number | string, value: string, tag?: string, description?: string }>): Promise<DhcpOption> {
+    const config = await this.getConfig();
+    
+    if (!config.dhcpOptions) {
+      throw new Error('No DHCP options found');
+    }
+    
+    const optionIndex = config.dhcpOptions.findIndex(option => option.id === id);
+    if (optionIndex === -1) {
+      throw new Error('DHCP option not found');
+    }
+    
+    // Update option
+    if (updates.optionNumber !== undefined) {
+      config.dhcpOptions[optionIndex].option = updates.optionNumber;
+    }
+    if (updates.value !== undefined) {
+      config.dhcpOptions[optionIndex].value = updates.value;
+    }
+    if (updates.tag !== undefined) {
+      config.dhcpOptions[optionIndex].tag = updates.tag;
+    }
+    
+    // Update configuration file
+    await this.updateConfig(config);
+    
+    return config.dhcpOptions[optionIndex];
+  }
+
+  async deleteOption(id: string): Promise<void> {
+    const config = await this.getConfig();
+    
+    if (!config.dhcpOptions) {
+      throw new Error('No DHCP options found');
+    }
+    
+    const optionIndex = config.dhcpOptions.findIndex(option => option.id === id);
+    if (optionIndex === -1) {
+      throw new Error('DHCP option not found');
+    }
+    
+    // Remove option
+    config.dhcpOptions.splice(optionIndex, 1);
+    
+    // Update configuration file
+    await this.updateConfig(config);
+  }
+
+  private isValidIP(ip: string): boolean {
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipRegex.test(ip);
   }
 }

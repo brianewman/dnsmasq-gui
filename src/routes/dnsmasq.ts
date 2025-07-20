@@ -198,3 +198,243 @@ dnsmasqRoutes.get('/status', async (req: AuthenticatedRequest, res) => {
     } as ApiResponse);
   }
 });
+
+// DHCP Ranges endpoints
+// Get all DHCP ranges
+dnsmasqRoutes.get('/ranges', async (req: AuthenticatedRequest, res) => {
+  try {
+    const ranges = await dnsmasqService.getRanges();
+    res.json({
+      success: true,
+      data: ranges
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve DHCP ranges'
+    } as ApiResponse);
+  }
+});
+
+// Create a new DHCP range
+dnsmasqRoutes.post('/ranges', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { startIp, endIp, leaseTime, tag, netmask } = req.body;
+
+    // Validation
+    if (!startIp || !endIp) {
+      res.status(400).json({
+        success: false,
+        error: 'Start IP and End IP are required'
+      } as ApiResponse);
+      return;
+    }
+
+    const newRange = await dnsmasqService.createRange({
+      startIp,
+      endIp,
+      leaseTime: leaseTime || '12h',
+      tag: tag || undefined,
+      netmask: netmask || '255.255.255.0'
+    });
+
+    res.json({
+      success: true,
+      data: newRange,
+      message: 'DHCP range created successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create DHCP range'
+    } as ApiResponse);
+  }
+});
+
+// Update an existing DHCP range
+dnsmasqRoutes.put('/ranges/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    const { startIp, endIp, leaseTime, tag, netmask } = req.body;
+
+    const updatedRange = await dnsmasqService.updateRange(id, {
+      startIp,
+      endIp,
+      leaseTime,
+      tag,
+      netmask
+    });
+
+    res.json({
+      success: true,
+      data: updatedRange,
+      message: 'DHCP range updated successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update DHCP range'
+    } as ApiResponse);
+  }
+});
+
+// Delete a DHCP range
+dnsmasqRoutes.delete('/ranges/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    await dnsmasqService.deleteRange(id);
+
+    res.json({
+      success: true,
+      message: 'DHCP range deleted successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete DHCP range'
+    } as ApiResponse);
+  }
+});
+
+// DHCP Options endpoints
+// Get all DHCP options
+dnsmasqRoutes.get('/options', async (req: AuthenticatedRequest, res) => {
+  try {
+    const options = await dnsmasqService.getOptions();
+    res.json({
+      success: true,
+      data: options
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve DHCP options'
+    } as ApiResponse);
+  }
+});
+
+// Create a new DHCP option
+dnsmasqRoutes.post('/options', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { optionNumber, value, tag, description } = req.body;
+
+    // Validation
+    if (!optionNumber || !value) {
+      res.status(400).json({
+        success: false,
+        error: 'Option number and value are required'
+      } as ApiResponse);
+      return;
+    }
+
+    const newOption = await dnsmasqService.createOption({
+      optionNumber,
+      value,
+      tag: tag || undefined,
+      description: description || undefined
+    });
+
+    res.json({
+      success: true,
+      data: newOption,
+      message: 'DHCP option created successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create DHCP option'
+    } as ApiResponse);
+  }
+});
+
+// Update an existing DHCP option
+dnsmasqRoutes.put('/options/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    const { optionNumber, value, tag, description } = req.body;
+
+    const updatedOption = await dnsmasqService.updateOption(id, {
+      optionNumber,
+      value,
+      tag,
+      description
+    });
+
+    res.json({
+      success: true,
+      data: updatedOption,
+      message: 'DHCP option updated successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update DHCP option'
+    } as ApiResponse);
+  }
+});
+
+// Delete a DHCP option
+dnsmasqRoutes.delete('/options/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    await dnsmasqService.deleteOption(id);
+
+    res.json({
+      success: true,
+      message: 'DHCP option deleted successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete DHCP option'
+    } as ApiResponse);
+  }
+});
