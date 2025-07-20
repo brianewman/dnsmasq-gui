@@ -6,6 +6,14 @@ class DnsmasqGUI {
         this.apiBase = '/api';
         this.currentConfig = null;
         
+        // Sorting state
+        this.currentSort = {
+            column: 'ipAddress',
+            direction: 'asc'
+        };
+        this.currentLeases = [];
+        this.currentStaticLeases = [];
+        
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
 
@@ -76,6 +84,49 @@ class DnsmasqGUI {
         if (restartBtn) {
             restartBtn.addEventListener('click', () => this.restartService());
         }
+        
+        // Add sorting event listeners for DHCP leases table
+        this.initSortingListeners();
+        
+        // Add click listeners for dashboard cards
+        this.initDashboardCardListeners();
+    }
+    
+    initDashboardCardListeners() {
+        // Active Leases card - navigate to DHCP Leases with default sorting
+        const activeLeasesCard = document.getElementById('active-leases-card');
+        if (activeLeasesCard) {
+            activeLeasesCard.addEventListener('click', () => {
+                this.navigateToLeases('ipAddress', 'asc');
+            });
+        }
+        
+        // Static Reservations card - navigate to DHCP Leases sorted by expiry (static first)
+        const staticLeasesCard = document.getElementById('static-leases-card');
+        if (staticLeasesCard) {
+            staticLeasesCard.addEventListener('click', () => {
+                this.navigateToLeases('expiry', 'asc'); // Static leases appear first in asc order
+            });
+        }
+    }
+    
+    navigateToLeases(sortColumn, sortDirection) {
+        // Set the desired sort parameters
+        this.currentSort.column = sortColumn;
+        this.currentSort.direction = sortDirection;
+        
+        // Navigate to the leases section
+        this.showSection('leases');
+    }
+    
+    initSortingListeners() {
+        // Add click listeners to sortable table headers
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const column = e.target.closest('.sortable').dataset.sort;
+                this.sortLeases(column);
+            });
+        });
     }
 
     showSection(sectionName) {
@@ -103,6 +154,8 @@ class DnsmasqGUI {
                 break;
             case 'leases':
                 this.loadLeases();
+                // Initialize sorting headers after the section is shown and data is loaded
+                setTimeout(() => this.updateSortHeaders(), 200);
                 break;
             case 'dns':
                 this.loadDnsConfig();
@@ -239,7 +292,12 @@ class DnsmasqGUI {
             ]);
             
             if (leasesResponse.success && configResponse.success) {
-                this.renderLeases(leasesResponse.data, configResponse.data.staticLeases || []);
+                // Store the data for sorting
+                this.currentLeases = leasesResponse.data;
+                this.currentStaticLeases = configResponse.data.staticLeases || [];
+                
+                // Apply current sorting and render
+                this.applySortAndRender();
             } else {
                 document.getElementById('leases-tbody').innerHTML = 
                     '<tr><td colspan="5" class="text-center text-muted">Failed to load leases</td></tr>';
@@ -321,6 +379,105 @@ class DnsmasqGUI {
             `;
             tbody.appendChild(row);
         });
+    }
+
+    sortLeases(column) {
+        // Toggle sort direction if clicking the same column
+        if (this.currentSort.column === column) {
+            this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.currentSort.column = column;
+            this.currentSort.direction = 'asc';
+        }
+        
+        this.applySortAndRender();
+        this.updateSortHeaders();
+    }
+    
+    applySortAndRender() {
+        if (this.currentLeases.length === 0) return;
+        
+        const sortedLeases = [...this.currentLeases].sort((a, b) => {
+            let aVal, bVal;
+            
+            // Get static lease info for hostname resolution
+            const aStatic = this.currentStaticLeases.find(s => 
+                s.macAddress.toLowerCase() === a.macAddress.toLowerCase()
+            );
+            const bStatic = this.currentStaticLeases.find(s => 
+                s.macAddress.toLowerCase() === b.macAddress.toLowerCase()
+            );
+            
+            switch (this.currentSort.column) {
+                case 'ipAddress':
+                    // Sort IP addresses numerically
+                    aVal = a.ipAddress.split('.').map(num => parseInt(num, 10));
+                    bVal = b.ipAddress.split('.').map(num => parseInt(num, 10));
+                    for (let i = 0; i < 4; i++) {
+                        if (aVal[i] !== bVal[i]) {
+                            return this.currentSort.direction === 'asc' ? 
+                                aVal[i] - bVal[i] : bVal[i] - aVal[i];
+                        }
+                    }
+                    return 0;
+                    
+                case 'macAddress':
+                    aVal = a.macAddress.toLowerCase();
+                    bVal = b.macAddress.toLowerCase();
+                    break;
+                    
+                case 'hostname':
+                    // Use static lease hostname if available, otherwise DHCP hostname
+                    aVal = (aStatic?.hostname || (a.hostname && a.hostname !== '*' ? a.hostname : 'Unknown')).toLowerCase();
+                    bVal = (bStatic?.hostname || (b.hostname && b.hostname !== '*' ? b.hostname : 'Unknown')).toLowerCase();
+                    break;
+                    
+                case 'expiry':
+                    // Sort by expiry date, but put static leases first or last depending on direction
+                    const aIsStatic = !!aStatic;
+                    const bIsStatic = !!bStatic;
+                    
+                    if (aIsStatic && !bIsStatic) {
+                        return this.currentSort.direction === 'asc' ? -1 : 1;
+                    }
+                    if (!aIsStatic && bIsStatic) {
+                        return this.currentSort.direction === 'asc' ? 1 : -1;
+                    }
+                    if (aIsStatic && bIsStatic) {
+                        return 0; // Both static, equal
+                    }
+                    
+                    aVal = new Date(a.expiry).getTime();
+                    bVal = new Date(b.expiry).getTime();
+                    break;
+                    
+                default:
+                    return 0;
+            }
+            
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+                return this.currentSort.direction === 'asc' ? 
+                    aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            } else {
+                return this.currentSort.direction === 'asc' ? 
+                    aVal - bVal : bVal - aVal;
+            }
+        });
+        
+        this.renderLeases(sortedLeases, this.currentStaticLeases);
+    }
+    
+    updateSortHeaders() {
+        // Reset all headers
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        // Update current sort header
+        const currentHeader = document.querySelector(`[data-sort="${this.currentSort.column}"]`);
+        if (currentHeader) {
+            currentHeader.classList.add(`sort-${this.currentSort.direction}`);
+        }
     }
 
     formatTimeRemaining(milliseconds) {

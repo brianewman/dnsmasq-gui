@@ -76,7 +76,7 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card">
+                            <div class="card clickable-card" id="active-leases-card" style="cursor: pointer;">
                                 <div class="card-body">
                                     <h5 class="card-title">
                                         <i class="bi bi-people text-info"></i>
@@ -87,7 +87,7 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="card">
+                            <div class="card clickable-card" id="static-leases-card" style="cursor: pointer;">
                                 <div class="card-body">
                                     <h5 class="card-title">
                                         <i class="bi bi-bookmark text-warning"></i>
@@ -157,10 +157,18 @@
                                 <table class="table table-hover mb-0" id="leases-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>IP Address</th>
-                                            <th>MAC Address</th>
-                                            <th>Hostname</th>
-                                            <th>Expires</th>
+                                            <th class="sortable" data-sort="ipAddress" style="cursor: pointer;">
+                                                IP Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="macAddress" style="cursor: pointer;">
+                                                MAC Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="hostname" style="cursor: pointer;">
+                                                Hostname <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="expiry" style="cursor: pointer;">
+                                                Expires <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
                                             <th width="160">Actions</th>
                                         </tr>
                                     </thead>
