@@ -71,14 +71,11 @@ class DnsmasqGUI {
             });
         }
         
-        // Generic cleanup for any remaining onclick handlers
-        document.addEventListener('click', (e) => {
-            if (e.target.hasAttribute('onclick')) {
-                console.warn('Removing inline onclick handler from:', e.target);
-                e.target.removeAttribute('onclick');
-                e.preventDefault();
-            }
-        });
+        // Add event listener for restart button
+        const restartBtn = document.getElementById('restart-service-btn');
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => this.restartService());
+        }
     }
 
     showSection(sectionName) {
