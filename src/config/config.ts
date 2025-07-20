@@ -9,7 +9,7 @@ export const config = {
   dnsmasq: {
     configPath: process.env.DNSMASQ_CONFIG_PATH || '/etc/dnsmasq.conf',
     hostsPath: process.env.DNSMASQ_HOSTS_PATH || '/etc/hosts',
-    leasesPath: process.env.DNSMASQ_LEASES_PATH || '/var/lib/dhcp/dhcpd.leases',
+    leasesPath: process.env.DNSMASQ_LEASES_PATH || '/var/lib/misc/dnsmasq.leases',
     additionalConfigDir: process.env.DNSMASQ_ADDITIONAL_CONFIG_DIR || '/etc/dnsmasq.d',
     
     // Default network configuration

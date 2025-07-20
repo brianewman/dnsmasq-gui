@@ -12,11 +12,6 @@ class DnsmasqGUI {
     async init() {
         console.log('Initializing DNSmasq GUI...');
         
-        // For now, always show login modal to test
-        console.log('Showing login modal');
-        this.showLoginModal();
-        return;
-        
         // Check if user is authenticated
         if (!this.token) {
             this.showLoginModal();
@@ -146,8 +141,12 @@ class DnsmasqGUI {
 
     updateServiceStatus(statusResponse) {
         const statusElement = document.getElementById('service-status');
+        const uptimeElement = document.getElementById('service-uptime');
+        const uptimeValueElement = document.getElementById('uptime-value');
+        
         if (statusResponse.success) {
             const status = statusResponse.data.status;
+            const uptime = statusResponse.data.uptime;
             const statusIcon = status === 'running' ? 'bi-circle-fill text-success' : 'bi-circle-fill text-danger';
             const statusText = status.toUpperCase();
             
@@ -160,12 +159,21 @@ class DnsmasqGUI {
                     </div>
                 </div>
             `;
+            
+            // Show/hide uptime based on service status and availability
+            if (status === 'running' && uptime && uptime !== 'Unknown') {
+                uptimeValueElement.textContent = uptime;
+                uptimeElement.style.display = 'block';
+            } else {
+                uptimeElement.style.display = 'none';
+            }
         } else {
             statusElement.innerHTML = `
                 <div class="text-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>Status Unknown
                 </div>
             `;
+            uptimeElement.style.display = 'none';
         }
     }
 

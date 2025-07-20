@@ -13,7 +13,7 @@ export const authRoutes = Router();
 const defaultUser = {
   id: '1',
   username: 'admin',
-  passwordHash: '$2b$12$Gv3zkUg.gIzOFbF4F.uc.eILhT5cqvilzf5Ksxrxs5W8wQ6K3Ztg.', // 'admin'
+  passwordHash: '$2b$12$o9dJxXeLr08te7ErFZ95QevSZCnFJrnr3glBJGfRJs.QldpeLKZKe', // 'admin'
   isAdmin: true,
   lastLogin: undefined,
   loginAttempts: 0,
