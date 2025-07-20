@@ -152,6 +152,39 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="card-body">
+                            <!-- Filter Controls -->
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="network-filter" class="form-label small">Filter by Network:</label>
+                                    <select class="form-select form-select-sm" id="network-filter">
+                                        <option value="">All Networks</option>
+                                        <!-- Options populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="type-filter" class="form-label small">Filter by Type:</label>
+                                    <select class="form-select form-select-sm" id="type-filter">
+                                        <option value="">All Types</option>
+                                        <option value="dynamic">Dynamic Leases</option>
+                                        <option value="static">Static Reservations</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="status-filter" class="form-label small">Filter by Status:</label>
+                                    <select class="form-select form-select-sm" id="status-filter">
+                                        <option value="">All Status</option>
+                                        <option value="active">Active</option>
+                                        <option value="expired">Expired</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button class="btn btn-outline-secondary btn-sm w-100" id="clear-filters-btn">
+                                        <i class="bi bi-x-circle"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0" id="leases-table">

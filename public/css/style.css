@@ -45,11 +45,11 @@ body {
 }
 
 .sortable.sort-asc .sort-icon:before {
-    content: "\F282"; /* bi-chevron-up */
+    content: "▲"; /* Up triangle */
 }
 
 .sortable.sort-desc .sort-icon:before {
-    content: "\F285"; /* bi-chevron-down */
+    content: "▼"; /* Down triangle */
 }
 
 /* Clickable card styles */

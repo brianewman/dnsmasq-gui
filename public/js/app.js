@@ -8,9 +8,17 @@ class DnsmasqGUI {
         
         // Sorting state
         this.currentSort = {
-            column: 'ipAddress',
+            column: null,
             direction: 'asc'
         };
+        
+        // Filtering state
+        this.currentFilters = {
+            network: '',
+            type: '',
+            status: ''
+        };
+        
         this.currentLeases = [];
         this.currentStaticLeases = [];
         
@@ -88,12 +96,15 @@ class DnsmasqGUI {
         // Add sorting event listeners for DHCP leases table
         this.initSortingListeners();
         
+        // Add filtering event listeners for DHCP leases table
+        this.initFilterListeners();
+        
         // Add click listeners for dashboard cards
         this.initDashboardCardListeners();
     }
     
     initDashboardCardListeners() {
-        // Active Leases card - navigate to DHCP Leases with default sorting
+        // Active Leases card - navigate to DHCP Leases with IP Address sorting
         const activeLeasesCard = document.getElementById('active-leases-card');
         if (activeLeasesCard) {
             activeLeasesCard.addEventListener('click', () => {
@@ -127,6 +138,41 @@ class DnsmasqGUI {
                 this.sortLeases(column);
             });
         });
+    }
+    
+    initFilterListeners() {
+        // Add change listeners to filter controls
+        const networkFilter = document.getElementById('network-filter');
+        const typeFilter = document.getElementById('type-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const clearFiltersBtn = document.getElementById('clear-filters-btn');
+        
+        if (networkFilter) {
+            networkFilter.addEventListener('change', (e) => {
+                this.currentFilters.network = e.target.value;
+                this.applyFiltersAndRender();
+            });
+        }
+        
+        if (typeFilter) {
+            typeFilter.addEventListener('change', (e) => {
+                this.currentFilters.type = e.target.value;
+                this.applyFiltersAndRender();
+            });
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => {
+                this.currentFilters.status = e.target.value;
+                this.applyFiltersAndRender();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearFilters();
+            });
+        }
     }
 
     showSection(sectionName) {
@@ -292,12 +338,15 @@ class DnsmasqGUI {
             ]);
             
             if (leasesResponse.success && configResponse.success) {
-                // Store the data for sorting
+                // Store the data for filtering and sorting
                 this.currentLeases = leasesResponse.data;
                 this.currentStaticLeases = configResponse.data.staticLeases || [];
                 
-                // Apply current sorting and render
-                this.applySortAndRender();
+                // Populate network filter options
+                this.populateNetworkFilter(this.currentLeases);
+                
+                // Apply current filters and sorting, then render
+                this.applyFiltersAndRender();
             } else {
                 document.getElementById('leases-tbody').innerHTML = 
                     '<tr><td colspan="5" class="text-center text-muted">Failed to load leases</td></tr>';
@@ -382,22 +431,166 @@ class DnsmasqGUI {
     }
 
     sortLeases(column) {
-        // Toggle sort direction if clicking the same column
+        // Cycle through three states: asc -> desc -> unsorted (null)
         if (this.currentSort.column === column) {
-            this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+            if (this.currentSort.direction === 'asc') {
+                this.currentSort.direction = 'desc';
+            } else if (this.currentSort.direction === 'desc') {
+                // Third click: clear sorting (unsorted state)
+                this.currentSort.column = null;
+                this.currentSort.direction = 'asc'; // Reset direction for next time
+            }
         } else {
+            // New column: start with ascending
             this.currentSort.column = column;
             this.currentSort.direction = 'asc';
         }
         
-        this.applySortAndRender();
-        this.updateSortHeaders();
+        this.applyFiltersAndRender();
     }
     
     applySortAndRender() {
         if (this.currentLeases.length === 0) return;
         
-        const sortedLeases = [...this.currentLeases].sort((a, b) => {
+        // If no sort column is specified, use original order (no sorting)
+        let sortedLeases;
+        if (!this.currentSort.column) {
+            sortedLeases = [...this.currentLeases];
+        } else {
+            sortedLeases = [...this.currentLeases].sort((a, b) => {
+                let aVal, bVal;
+                
+                // Get static lease info for hostname resolution
+                const aStatic = this.currentStaticLeases.find(s => 
+                    s.macAddress.toLowerCase() === a.macAddress.toLowerCase()
+                );
+                const bStatic = this.currentStaticLeases.find(s => 
+                    s.macAddress.toLowerCase() === b.macAddress.toLowerCase()
+                );
+                
+                switch (this.currentSort.column) {
+                    case 'ipAddress':
+                        // Sort IP addresses numerically
+                        aVal = a.ipAddress.split('.').map(num => parseInt(num, 10));
+                        bVal = b.ipAddress.split('.').map(num => parseInt(num, 10));
+                        for (let i = 0; i < 4; i++) {
+                            if (aVal[i] !== bVal[i]) {
+                                return this.currentSort.direction === 'asc' ? 
+                                    aVal[i] - bVal[i] : bVal[i] - aVal[i];
+                            }
+                        }
+                        return 0;
+                        
+                    case 'macAddress':
+                        aVal = a.macAddress.toLowerCase();
+                        bVal = b.macAddress.toLowerCase();
+                        break;
+                        
+                    case 'hostname':
+                        // Use static lease hostname if available, otherwise DHCP hostname
+                        aVal = (aStatic?.hostname || (a.hostname && a.hostname !== '*' ? a.hostname : 'Unknown')).toLowerCase();
+                        bVal = (bStatic?.hostname || (b.hostname && b.hostname !== '*' ? b.hostname : 'Unknown')).toLowerCase();
+                        break;
+                        
+                    case 'expiry':
+                        // Sort by expiry date, but put static leases first or last depending on direction
+                        const aIsStatic = !!aStatic;
+                        const bIsStatic = !!bStatic;
+                        
+                        if (aIsStatic && !bIsStatic) {
+                            return this.currentSort.direction === 'asc' ? -1 : 1;
+                        }
+                        if (!aIsStatic && bIsStatic) {
+                            return this.currentSort.direction === 'asc' ? 1 : -1;
+                        }
+                        if (aIsStatic && bIsStatic) {
+                            return 0; // Both static, equal
+                        }
+                        
+                        aVal = new Date(a.expiry).getTime();
+                        bVal = new Date(b.expiry).getTime();
+                        break;
+                        
+                    default:
+                        return 0;
+                }
+                
+                if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    return this.currentSort.direction === 'asc' ? 
+                        aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                } else {
+                    return this.currentSort.direction === 'asc' ? 
+                        aVal - bVal : bVal - aVal;
+                }
+            });
+        }
+        
+        this.renderLeases(sortedLeases, this.currentStaticLeases);
+        this.updateSortHeaders();
+    }
+    
+    applyFiltersAndRender() {
+        if (this.currentLeases.length === 0) return;
+        
+        // First apply filters
+        let filteredLeases = this.filterLeases(this.currentLeases);
+        
+        // Then apply sorting if any
+        if (this.currentSort.column) {
+            filteredLeases = this.sortFilteredLeases(filteredLeases);
+        }
+        
+        this.renderLeases(filteredLeases, this.currentStaticLeases);
+        this.updateSortHeaders();
+        this.updateFilterCounts(filteredLeases);
+    }
+    
+    filterLeases(leases) {
+        return leases.filter(lease => {
+            // Check if this lease has a static reservation
+            const staticLease = this.currentStaticLeases.find(staticLease => 
+                staticLease.macAddress.toLowerCase() === lease.macAddress.toLowerCase()
+            );
+            const isStatic = !!staticLease;
+            
+            // Network filter
+            if (this.currentFilters.network) {
+                const network = this.getNetworkFromIP(lease.ipAddress);
+                if (network !== this.currentFilters.network) {
+                    return false;
+                }
+            }
+            
+            // Type filter
+            if (this.currentFilters.type) {
+                if (this.currentFilters.type === 'static' && !isStatic) {
+                    return false;
+                }
+                if (this.currentFilters.type === 'dynamic' && isStatic) {
+                    return false;
+                }
+            }
+            
+            // Status filter
+            if (this.currentFilters.status) {
+                const now = new Date();
+                const expiry = new Date(lease.expiry);
+                const isExpired = expiry < now;
+                
+                if (this.currentFilters.status === 'active' && (isExpired && !isStatic)) {
+                    return false;
+                }
+                if (this.currentFilters.status === 'expired' && (!isExpired || isStatic)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+    }
+    
+    sortFilteredLeases(leases) {
+        return [...leases].sort((a, b) => {
             let aVal, bVal;
             
             // Get static lease info for hostname resolution
@@ -463,8 +656,70 @@ class DnsmasqGUI {
                     aVal - bVal : bVal - aVal;
             }
         });
+    }
+    
+    getNetworkFromIP(ipAddress) {
+        // Extract network (first 3 octets) from IP address
+        const parts = ipAddress.split('.');
+        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+    }
+    
+    clearFilters() {
+        this.currentFilters = {
+            network: '',
+            type: '',
+            status: ''
+        };
         
-        this.renderLeases(sortedLeases, this.currentStaticLeases);
+        // Reset filter controls
+        const networkFilter = document.getElementById('network-filter');
+        const typeFilter = document.getElementById('type-filter');
+        const statusFilter = document.getElementById('status-filter');
+        
+        if (networkFilter) networkFilter.value = '';
+        if (typeFilter) typeFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        
+        // Re-render with no filters
+        this.applySortAndRender();
+    }
+    
+    updateFilterCounts(filteredLeases) {
+        const leasesCount = document.getElementById('leases-count');
+        if (leasesCount) {
+            const totalCount = this.currentLeases.length;
+            const filteredCount = filteredLeases.length;
+            
+            if (filteredCount === totalCount) {
+                leasesCount.textContent = totalCount;
+                leasesCount.className = 'badge bg-info';
+            } else {
+                leasesCount.textContent = `${filteredCount}/${totalCount}`;
+                leasesCount.className = 'badge bg-warning';
+            }
+        }
+    }
+    
+    populateNetworkFilter(leases) {
+        const networkFilter = document.getElementById('network-filter');
+        if (!networkFilter) return;
+        
+        // Get unique networks from all leases
+        const networks = new Set();
+        leases.forEach(lease => {
+            networks.add(this.getNetworkFromIP(lease.ipAddress));
+        });
+        
+        // Clear existing options except the first one
+        networkFilter.innerHTML = '<option value="">All Networks</option>';
+        
+        // Add network options
+        Array.from(networks).sort().forEach(network => {
+            const option = document.createElement('option');
+            option.value = network;
+            option.textContent = `${network}.x`;
+            networkFilter.appendChild(option);
+        });
     }
     
     updateSortHeaders() {
