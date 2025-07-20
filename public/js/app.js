@@ -111,6 +111,9 @@ class DnsmasqGUI {
         // Add filtering event listeners for DHCP reservations table
         this.initReservationFilterListeners();
         
+        // Add modal accessibility event listeners
+        this.initModalEventListeners();
+        
         // Add click listeners for dashboard cards
         this.initDashboardCardListeners();
     }
@@ -228,6 +231,32 @@ class DnsmasqGUI {
                 this.clearReservationFilters();
             });
         }
+    }
+
+    initModalEventListeners() {
+        // Handle modal accessibility - prevent aria-hidden focus issues
+        const modals = ['reservationModal', 'deleteReservationModal', 'loginModal'];
+        
+        modals.forEach(modalId => {
+            const modalElement = document.getElementById(modalId);
+            if (modalElement) {
+                // Before modal is hidden, blur any focused elements inside to prevent accessibility warnings
+                modalElement.addEventListener('hide.bs.modal', () => {
+                    const focusedElement = modalElement.querySelector(':focus');
+                    if (focusedElement) {
+                        focusedElement.blur();
+                    }
+                });
+
+                // When modal is shown, focus on first focusable element for better accessibility
+                modalElement.addEventListener('shown.bs.modal', () => {
+                    const firstFocusable = modalElement.querySelector('input:not([type="hidden"]), textarea, select, button:not(.btn-close)');
+                    if (firstFocusable) {
+                        firstFocusable.focus();
+                    }
+                });
+            }
+        });
     }
 
     showSection(sectionName) {
