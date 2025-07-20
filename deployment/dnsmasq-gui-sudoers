@@ -2,7 +2,7 @@
 # This file should be placed in /etc/sudoers.d/dnsmasq-gui
 
 # Allow the dnsmasq-gui user to restart the dnsmasq service without password
-dnsmasq-gui ALL=(ALL) NOPASSWD: /bin/systemctl restart dnsmasq
-dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart dnsmasq
-dnsmasq-gui ALL=(ALL) NOPASSWD: /bin/systemctl status dnsmasq
-dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl status dnsmasq
+dnsmasq-gui ALL=(ALL) NOPASSWD: /bin/systemctl restart dnsmasq.service
+dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart dnsmasq.service
+dnsmasq-gui ALL=(ALL) NOPASSWD: /bin/systemctl status dnsmasq.service
+dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl status dnsmasq.service
