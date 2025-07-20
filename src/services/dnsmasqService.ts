@@ -268,6 +268,136 @@ export class DnsmasqService {
     }
   }
 
+  async createStaticReservation(macAddress: string, ipAddress: string, hostname?: string): Promise<void> {
+    try {
+      // Validate MAC address format
+      const macRegex = /^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}$/;
+      if (!macRegex.test(macAddress)) {
+        throw new Error('Invalid MAC address format. Expected format: XX:XX:XX:XX:XX:XX');
+      }
+
+      // Validate IP address format
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(ipAddress)) {
+        throw new Error('Invalid IP address format');
+      }
+
+      // Validate hostname format if provided
+      if (hostname) {
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+        if (!hostnameRegex.test(hostname)) {
+          throw new Error('Invalid hostname format. Use only letters, numbers, and hyphens.');
+        }
+      }
+
+      const config = await this.getConfig();
+      
+      // Check for duplicate MAC address
+      const existingMac = config.staticLeases.find(lease => 
+        lease.macAddress.toLowerCase() === macAddress.toLowerCase()
+      );
+      if (existingMac) {
+        throw new Error('A reservation already exists for this MAC address');
+      }
+
+      // Check for duplicate IP address
+      const existingIp = config.staticLeases.find(lease => lease.ipAddress === ipAddress);
+      if (existingIp) {
+        throw new Error('A reservation already exists for this IP address');
+      }
+
+      const newReservation: StaticLease = {
+        id: `static-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        macAddress: macAddress.toLowerCase(),
+        ipAddress,
+        hostname: hostname || ''
+      };
+
+      config.staticLeases.push(newReservation);
+      await this.updateConfig(config);
+    } catch (error) {
+      console.error('Failed to create static reservation:', error);
+      throw error;
+    }
+  }
+
+  async updateStaticReservation(id: string, macAddress: string, ipAddress: string, hostname?: string): Promise<void> {
+    try {
+      // Validate MAC address format
+      const macRegex = /^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}$/;
+      if (!macRegex.test(macAddress)) {
+        throw new Error('Invalid MAC address format. Expected format: XX:XX:XX:XX:XX:XX');
+      }
+
+      // Validate IP address format
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(ipAddress)) {
+        throw new Error('Invalid IP address format');
+      }
+
+      // Validate hostname format if provided
+      if (hostname) {
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+        if (!hostnameRegex.test(hostname)) {
+          throw new Error('Invalid hostname format. Use only letters, numbers, and hyphens.');
+        }
+      }
+
+      const config = await this.getConfig();
+      const reservationIndex = config.staticLeases.findIndex(lease => lease.id === id);
+      
+      if (reservationIndex === -1) {
+        throw new Error('Reservation not found');
+      }
+
+      // Check for duplicate MAC address (excluding current reservation)
+      const existingMac = config.staticLeases.find(lease => 
+        lease.id !== id && lease.macAddress.toLowerCase() === macAddress.toLowerCase()
+      );
+      if (existingMac) {
+        throw new Error('A reservation already exists for this MAC address');
+      }
+
+      // Check for duplicate IP address (excluding current reservation)
+      const existingIp = config.staticLeases.find(lease => 
+        lease.id !== id && lease.ipAddress === ipAddress
+      );
+      if (existingIp) {
+        throw new Error('A reservation already exists for this IP address');
+      }
+
+      // Update the reservation
+      config.staticLeases[reservationIndex] = {
+        ...config.staticLeases[reservationIndex],
+        macAddress: macAddress.toLowerCase(),
+        ipAddress,
+        hostname: hostname || ''
+      };
+
+      await this.updateConfig(config);
+    } catch (error) {
+      console.error('Failed to update static reservation:', error);
+      throw error;
+    }
+  }
+
+  async deleteStaticReservation(id: string): Promise<void> {
+    try {
+      const config = await this.getConfig();
+      const reservationIndex = config.staticLeases.findIndex(lease => lease.id === id);
+      
+      if (reservationIndex === -1) {
+        throw new Error('Reservation not found');
+      }
+
+      config.staticLeases.splice(reservationIndex, 1);
+      await this.updateConfig(config);
+    } catch (error) {
+      console.error('Failed to delete static reservation:', error);
+      throw error;
+    }
+  }
+
   async restart(): Promise<void> {
     try {
       const restartFlag = '/tmp/dnsmasq-restart-requested';
@@ -444,19 +574,46 @@ export class DnsmasqService {
         config.expandHosts = true;
       } else if (line.startsWith('dhcp-range=')) {
         const rangeValue = line.split('=')[1];
-        const parts = rangeValue.split(',');
-        if (parts.length >= 2) {
-          config.dhcpRanges.push({
+        console.log('Parsing dhcp-range:', rangeValue);
+        let parts = rangeValue.split(',');
+        
+        let tag: string | undefined;
+        let startIdx = 0;
+        
+        // Check if the first part is a tag (set:tagname)
+        if (parts[0].startsWith('set:')) {
+          tag = parts[0].substring(4); // Remove 'set:' prefix
+          startIdx = 1;
+          console.log('Found tag:', tag);
+        }
+        
+        if (parts.length >= startIdx + 2) {
+          const range: DhcpRange = {
             id: `range-${config.dhcpRanges.length}`,
-            startIp: parts[0],
-            endIp: parts[1],
-            leaseTime: parts[2] || '24h'
-          });
+            startIp: parts[startIdx],
+            endIp: parts[startIdx + 1],
+            leaseTime: parts[startIdx + 3] || '24h'
+          };
+          
+          if (tag) {
+            range.tag = tag;
+          }
+          
+          // Handle netmask if provided
+          if (parts.length > startIdx + 2 && parts[startIdx + 2] && 
+              parts[startIdx + 2].match(/^\d+\.\d+\.\d+\.\d+$/)) {
+            range.netmask = parts[startIdx + 2];
+            console.log('Found netmask:', range.netmask);
+          }
+          
+          console.log('Parsed range:', range);
+          config.dhcpRanges.push(range);
         }
       }
       // Add more parsing logic for other options...
     }
 
+    console.log('Final config with dhcpRanges:', config.dhcpRanges);
     return config;
   }
 

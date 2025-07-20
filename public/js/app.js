@@ -16,11 +16,20 @@ class DnsmasqGUI {
         this.currentFilters = {
             network: '',
             type: '',
-            status: ''
+            status: '',
+            search: ''
+        };
+        
+        this.currentReservationFilters = {
+            network: '',
+            status: '',
+            search: ''
         };
         
         this.currentLeases = [];
         this.currentStaticLeases = [];
+        this.currentReservations = [];
+        this.currentDhcpRanges = [];
         
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
@@ -99,6 +108,9 @@ class DnsmasqGUI {
         // Add filtering event listeners for DHCP leases table
         this.initFilterListeners();
         
+        // Add filtering event listeners for DHCP reservations table
+        this.initReservationFilterListeners();
+        
         // Add click listeners for dashboard cards
         this.initDashboardCardListeners();
     }
@@ -112,11 +124,11 @@ class DnsmasqGUI {
             });
         }
         
-        // Static Reservations card - navigate to DHCP Leases sorted by expiry (static first)
+        // Static Reservations card - navigate to DHCP Reservations section
         const staticLeasesCard = document.getElementById('static-leases-card');
         if (staticLeasesCard) {
             staticLeasesCard.addEventListener('click', () => {
-                this.navigateToLeases('expiry', 'asc'); // Static leases appear first in asc order
+                this.showSection('reservations');
             });
         }
     }
@@ -145,6 +157,7 @@ class DnsmasqGUI {
         const networkFilter = document.getElementById('network-filter');
         const typeFilter = document.getElementById('type-filter');
         const statusFilter = document.getElementById('status-filter');
+        const searchFilter = document.getElementById('search-filter');
         const clearFiltersBtn = document.getElementById('clear-filters-btn');
         
         if (networkFilter) {
@@ -168,9 +181,51 @@ class DnsmasqGUI {
             });
         }
         
+        if (searchFilter) {
+            searchFilter.addEventListener('input', (e) => {
+                this.currentFilters.search = e.target.value;
+                this.applyFiltersAndRender();
+            });
+        }
+        
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', () => {
                 this.clearFilters();
+            });
+        }
+    }
+    
+    initReservationFilterListeners() {
+        // Add change listeners to reservation filter controls
+        const networkFilter = document.getElementById('reservations-network-filter');
+        const statusFilter = document.getElementById('reservations-status-filter');
+        const searchFilter = document.getElementById('reservations-search-filter');
+        const clearFiltersBtn = document.getElementById('clear-reservations-filters-btn');
+        
+        if (networkFilter) {
+            networkFilter.addEventListener('change', (e) => {
+                this.currentReservationFilters.network = e.target.value;
+                this.applyReservationFiltersAndRender();
+            });
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => {
+                this.currentReservationFilters.status = e.target.value;
+                this.applyReservationFiltersAndRender();
+            });
+        }
+        
+        if (searchFilter) {
+            searchFilter.addEventListener('input', (e) => {
+                this.currentReservationFilters.search = e.target.value;
+                this.applyReservationFiltersAndRender();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearReservationFilters();
             });
         }
     }
@@ -202,6 +257,9 @@ class DnsmasqGUI {
                 this.loadLeases();
                 // Initialize sorting headers after the section is shown and data is loaded
                 setTimeout(() => this.updateSortHeaders(), 200);
+                break;
+            case 'reservations':
+                this.loadReservations();
                 break;
             case 'dns':
                 this.loadDnsConfig();
@@ -341,20 +399,21 @@ class DnsmasqGUI {
                 // Store the data for filtering and sorting
                 this.currentLeases = leasesResponse.data;
                 this.currentStaticLeases = configResponse.data.staticLeases || [];
+                this.currentDhcpRanges = configResponse.data.dhcpRanges || [];
                 
                 // Populate network filter options
-                this.populateNetworkFilter(this.currentLeases);
+                this.populateNetworkFilter();
                 
                 // Apply current filters and sorting, then render
                 this.applyFiltersAndRender();
             } else {
                 document.getElementById('leases-tbody').innerHTML = 
-                    '<tr><td colspan="5" class="text-center text-muted">Failed to load leases</td></tr>';
+                    '<tr><td colspan="6" class="text-center text-muted">Failed to load leases</td></tr>';
             }
         } catch (error) {
             console.error('Failed to load leases:', error);
             document.getElementById('leases-tbody').innerHTML = 
-                '<tr><td colspan="5" class="text-center text-danger">Error loading leases</td></tr>';
+                '<tr><td colspan="6" class="text-center text-danger">Error loading leases</td></tr>';
         }
     }
 
@@ -363,7 +422,7 @@ class DnsmasqGUI {
         tbody.innerHTML = '';
 
         if (leases.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No active leases found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No active leases found</td></tr>';
             return;
         }
 
@@ -388,6 +447,9 @@ class DnsmasqGUI {
                 this.formatTimeRemaining(expiry - now) : 
                 '<span class="text-danger">Expired</span>';
             
+            // Get network information
+            const networkInfo = this.getNetworkFromIP(lease.ipAddress);
+            
             // Add visual indicator for static leases
             const staticBadge = isStatic ? '<span class="badge bg-success ms-2">Static</span>' : '';
             const rowClass = isStatic ? 'table-success' : '';
@@ -402,6 +464,10 @@ class DnsmasqGUI {
                 </td>
                 <td>
                     <span class="text-primary">${displayHostname}</span>${staticBadge}
+                </td>
+                <td>
+                    <span class="badge bg-info">${networkInfo.tag}</span><br>
+                    <small class="text-muted">${networkInfo.network}</small>
                 </td>
                 <td>
                     <small class="text-muted">
@@ -555,8 +621,8 @@ class DnsmasqGUI {
             
             // Network filter
             if (this.currentFilters.network) {
-                const network = this.getNetworkFromIP(lease.ipAddress);
-                if (network !== this.currentFilters.network) {
+                const networkInfo = this.getNetworkFromIP(lease.ipAddress);
+                if (networkInfo.network !== this.currentFilters.network) {
                     return false;
                 }
             }
@@ -581,6 +647,21 @@ class DnsmasqGUI {
                     return false;
                 }
                 if (this.currentFilters.status === 'expired' && (!isExpired || isStatic)) {
+                    return false;
+                }
+            }
+            
+            // Search filter (MAC, IP, or hostname)
+            if (this.currentFilters.search) {
+                const searchTerm = this.currentFilters.search.toLowerCase();
+                const macMatch = lease.macAddress.toLowerCase().includes(searchTerm);
+                const ipMatch = lease.ipAddress.toLowerCase().includes(searchTerm);
+                
+                // Use hostname from static lease if available, otherwise use DHCP lease hostname
+                const displayHostname = (staticLease?.hostname || (lease.hostname && lease.hostname !== '*' ? lease.hostname : '')).toLowerCase();
+                const hostnameMatch = displayHostname.includes(searchTerm);
+                
+                if (!macMatch && !ipMatch && !hostnameMatch) {
                     return false;
                 }
             }
@@ -625,6 +706,14 @@ class DnsmasqGUI {
                     bVal = (bStatic?.hostname || (b.hostname && b.hostname !== '*' ? b.hostname : 'Unknown')).toLowerCase();
                     break;
                     
+                case 'network':
+                    // Sort by network tag first, then by network address
+                    const aNetworkInfo = this.getNetworkFromIP(a.ipAddress);
+                    const bNetworkInfo = this.getNetworkFromIP(b.ipAddress);
+                    aVal = `${aNetworkInfo.tag}-${aNetworkInfo.network}`;
+                    bVal = `${bNetworkInfo.tag}-${bNetworkInfo.network}`;
+                    break;
+                    
                 case 'expiry':
                     // Sort by expiry date, but put static leases first or last depending on direction
                     const aIsStatic = !!aStatic;
@@ -659,29 +748,78 @@ class DnsmasqGUI {
     }
     
     getNetworkFromIP(ipAddress) {
-        // Extract network (first 3 octets) from IP address
+        // Find which DHCP range this IP belongs to
+        for (const range of this.currentDhcpRanges) {
+            if (this.isIpInRange(ipAddress, range)) {
+                const networkAddr = this.getNetworkAddress(range.startIp, range.netmask || '255.255.255.0');
+                const cidr = this.netmaskToCidr(range.netmask || '255.255.255.0');
+                const tag = range.tag || 'default';
+                return {
+                    tag: tag,
+                    network: `${networkAddr}/${cidr}`,
+                    displayName: `${tag} (${networkAddr}/${cidr})`
+                };
+            }
+        }
+        
+        // Fallback: if not in any range, use simple /24 network
         const parts = ipAddress.split('.');
-        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+        const networkAddr = `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+        return {
+            tag: 'unknown',
+            network: `${networkAddr}/24`,
+            displayName: `unknown (${networkAddr}/24)`
+        };
+    }
+    
+    isIpInRange(ipAddress, range) {
+        const ip = this.ipToNumber(ipAddress);
+        const startIp = this.ipToNumber(range.startIp);
+        const endIp = this.ipToNumber(range.endIp);
+        return ip >= startIp && ip <= endIp;
+    }
+    
+    ipToNumber(ip) {
+        return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
+    }
+    
+    getNetworkAddress(ipAddress, netmask) {
+        const ip = this.ipToNumber(ipAddress);
+        const mask = this.ipToNumber(netmask);
+        const network = (ip & mask) >>> 0;
+        return this.numberToIp(network);
+    }
+    
+    numberToIp(num) {
+        return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+    }
+    
+    netmaskToCidr(netmask) {
+        const mask = this.ipToNumber(netmask);
+        return (mask >>> 0).toString(2).split('1').length - 1;
     }
     
     clearFilters() {
         this.currentFilters = {
             network: '',
             type: '',
-            status: ''
+            status: '',
+            search: ''
         };
         
         // Reset filter controls
         const networkFilter = document.getElementById('network-filter');
         const typeFilter = document.getElementById('type-filter');
         const statusFilter = document.getElementById('status-filter');
+        const searchFilter = document.getElementById('search-filter');
         
         if (networkFilter) networkFilter.value = '';
         if (typeFilter) typeFilter.value = '';
         if (statusFilter) statusFilter.value = '';
+        if (searchFilter) searchFilter.value = '';
         
-        // Re-render with no filters
-        this.applySortAndRender();
+        // Re-render with no filters and update counts
+        this.applyFiltersAndRender();
     }
     
     updateFilterCounts(filteredLeases) {
@@ -700,26 +838,48 @@ class DnsmasqGUI {
         }
     }
     
-    populateNetworkFilter(leases) {
+    populateNetworkFilter() {
         const networkFilter = document.getElementById('network-filter');
         if (!networkFilter) return;
         
-        // Get unique networks from all leases
-        const networks = new Set();
-        leases.forEach(lease => {
-            networks.add(this.getNetworkFromIP(lease.ipAddress));
+        // Get networks from DHCP ranges
+        const networks = new Map();
+        
+        // Add networks from DHCP ranges
+        this.currentDhcpRanges.forEach(range => {
+            const networkAddr = this.getNetworkAddress(range.startIp, range.netmask || '255.255.255.0');
+            const cidr = this.netmaskToCidr(range.netmask || '255.255.255.0');
+            const tag = range.tag || 'default';
+            const network = `${networkAddr}/${cidr}`;
+            const displayName = `${tag} (${network})`;
+            
+            networks.set(network, {
+                tag: tag,
+                network: network,
+                displayName: displayName
+            });
+        });
+        
+        // Add networks from current leases that might not be in ranges
+        this.currentLeases.forEach(lease => {
+            const networkInfo = this.getNetworkFromIP(lease.ipAddress);
+            if (!networks.has(networkInfo.network)) {
+                networks.set(networkInfo.network, networkInfo);
+            }
         });
         
         // Clear existing options except the first one
         networkFilter.innerHTML = '<option value="">All Networks</option>';
         
-        // Add network options
-        Array.from(networks).sort().forEach(network => {
-            const option = document.createElement('option');
-            option.value = network;
-            option.textContent = `${network}.x`;
-            networkFilter.appendChild(option);
-        });
+        // Add network options sorted by display name
+        Array.from(networks.values())
+            .sort((a, b) => a.displayName.localeCompare(b.displayName))
+            .forEach(networkInfo => {
+                const option = document.createElement('option');
+                option.value = networkInfo.network;
+                option.textContent = networkInfo.displayName;
+                networkFilter.appendChild(option);
+            });
     }
     
     updateSortHeaders() {
@@ -1043,6 +1203,403 @@ class DnsmasqGUI {
     loadAdvancedSettings() {
         console.log('Loading advanced settings...');
     }
+
+    // DHCP Reservations Management
+    async loadReservations() {
+        try {
+            // Load reservations, config (for DHCP ranges), and leases (for status detection) in parallel
+            const [reservationsResponse, configResponse, leasesResponse] = await Promise.all([
+                fetch('/api/dnsmasq/reservations', {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                }),
+                this.apiCall('/dnsmasq/config'),
+                this.apiCall('/dnsmasq/leases')
+            ]);
+
+            if (!reservationsResponse.ok) {
+                throw new Error(`Failed to load reservations: ${reservationsResponse.status}`);
+            }
+
+            const reservationsResult = await reservationsResponse.json();
+            if (!reservationsResult.success) {
+                throw new Error(reservationsResult.error || 'Failed to load reservations');
+            }
+
+            // Store DHCP ranges for network detection
+            if (configResponse.success) {
+                this.currentDhcpRanges = configResponse.data.dhcpRanges || [];
+            }
+
+            // Store current leases for status detection
+            if (leasesResponse.success) {
+                this.currentLeases = leasesResponse.data;
+            }
+
+            this.currentReservations = reservationsResult.data; // Store for later reference
+            
+            // Populate network filter options
+            this.populateReservationNetworkFilter();
+            
+            // Apply filters and render
+            this.applyReservationFiltersAndRender();
+            
+            document.getElementById('reservations-count').textContent = reservationsResult.data.length;
+        } catch (error) {
+            console.error('Error loading reservations:', error);
+            document.getElementById('reservations-table-body').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        Error loading reservations: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    displayReservations(reservations) {
+        const tbody = document.getElementById('reservations-table-body');
+        
+        if (reservations.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <i class="bi bi-bookmark me-2 text-muted"></i>
+                        No static reservations configured
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = reservations.map(reservation => {
+            const network = this.getNetworkFromIP(reservation.ipAddress);
+            const networkBadge = `<span class="badge bg-info">${network.displayName}</span>`;
+            
+            // Check if this reservation is currently active (has a matching lease)
+            const isActive = this.currentLeases && this.currentLeases.some(lease => 
+                lease.macAddress.toLowerCase() === reservation.macAddress.toLowerCase()
+            );
+            
+            const statusBadge = isActive 
+                ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Active</span>'
+                : '<span class="badge bg-secondary"><i class="bi bi-dash-circle"></i> Inactive</span>';
+
+            return `
+                <tr>
+                    <td>
+                        <code class="text-dark">${reservation.macAddress}</code>
+                    </td>
+                    <td>
+                        <code class="text-primary">${reservation.ipAddress}</code>
+                    </td>
+                    <td>${reservation.hostname || '<em class="text-muted">Not set</em>'}</td>
+                    <td>${networkBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="app.editReservation('${reservation.id}')"
+                                    title="Edit reservation">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="app.deleteReservation('${reservation.id}')"
+                                    title="Delete reservation">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    populateReservationNetworkFilter() {
+        const networkFilter = document.getElementById('reservations-network-filter');
+        if (!networkFilter || !this.currentReservations) return;
+        
+        // Get networks from current reservations
+        const networks = new Map();
+        
+        // Add networks from DHCP ranges
+        this.currentDhcpRanges.forEach(range => {
+            const networkAddr = this.getNetworkAddress(range.startIp, range.netmask || '255.255.255.0');
+            const cidr = this.netmaskToCidr(range.netmask || '255.255.255.0');
+            const tag = range.tag || 'default';
+            const network = `${networkAddr}/${cidr}`;
+            const displayName = `${tag} (${network})`;
+            
+            networks.set(network, {
+                tag: tag,
+                network: network,
+                displayName: displayName
+            });
+        });
+        
+        // Add networks from current reservations that might not be in ranges
+        this.currentReservations.forEach(reservation => {
+            const networkInfo = this.getNetworkFromIP(reservation.ipAddress);
+            if (!networks.has(networkInfo.network)) {
+                networks.set(networkInfo.network, networkInfo);
+            }
+        });
+        
+        // Clear existing options except the first one
+        networkFilter.innerHTML = '<option value="">All Networks</option>';
+        
+        // Add network options sorted by display name
+        Array.from(networks.values())
+            .sort((a, b) => a.displayName.localeCompare(b.displayName))
+            .forEach(networkInfo => {
+                const option = document.createElement('option');
+                option.value = networkInfo.network;
+                option.textContent = networkInfo.displayName;
+                networkFilter.appendChild(option);
+            });
+    }
+    
+    applyReservationFiltersAndRender() {
+        if (!this.currentReservations || this.currentReservations.length === 0) {
+            this.displayReservations([]);
+            this.updateReservationFilterCounts([]);
+            return;
+        }
+        
+        // Apply filters
+        const filteredReservations = this.filterReservations(this.currentReservations);
+        
+        // Render filtered results
+        this.displayReservations(filteredReservations);
+        this.updateReservationFilterCounts(filteredReservations);
+    }
+    
+    filterReservations(reservations) {
+        return reservations.filter(reservation => {
+            // Network filter
+            if (this.currentReservationFilters.network) {
+                const networkInfo = this.getNetworkFromIP(reservation.ipAddress);
+                if (networkInfo.network !== this.currentReservationFilters.network) {
+                    return false;
+                }
+            }
+            
+            // Status filter
+            if (this.currentReservationFilters.status) {
+                const isActive = this.currentLeases && this.currentLeases.some(lease => 
+                    lease.macAddress.toLowerCase() === reservation.macAddress.toLowerCase()
+                );
+                
+                if (this.currentReservationFilters.status === 'active' && !isActive) {
+                    return false;
+                }
+                if (this.currentReservationFilters.status === 'inactive' && isActive) {
+                    return false;
+                }
+            }
+            
+            // Search filter (MAC, IP, or hostname)
+            if (this.currentReservationFilters.search) {
+                const searchTerm = this.currentReservationFilters.search.toLowerCase();
+                const macMatch = reservation.macAddress.toLowerCase().includes(searchTerm);
+                const ipMatch = reservation.ipAddress.toLowerCase().includes(searchTerm);
+                const hostnameMatch = (reservation.hostname || '').toLowerCase().includes(searchTerm);
+                
+                if (!macMatch && !ipMatch && !hostnameMatch) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+    }
+    
+    clearReservationFilters() {
+        this.currentReservationFilters = {
+            network: '',
+            status: '',
+            search: ''
+        };
+        
+        // Reset filter controls
+        const networkFilter = document.getElementById('reservations-network-filter');
+        const statusFilter = document.getElementById('reservations-status-filter');
+        const searchFilter = document.getElementById('reservations-search-filter');
+        
+        if (networkFilter) networkFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        if (searchFilter) searchFilter.value = '';
+        
+        // Re-render with no filters and update counts
+        this.applyReservationFiltersAndRender();
+    }
+    
+    updateReservationFilterCounts(filteredReservations) {
+        const reservationsCount = document.getElementById('reservations-count');
+        if (reservationsCount) {
+            const totalCount = this.currentReservations.length;
+            const filteredCount = filteredReservations.length;
+            
+            if (filteredCount === totalCount) {
+                reservationsCount.textContent = totalCount;
+                reservationsCount.className = 'badge bg-warning';
+            } else {
+                reservationsCount.textContent = `${filteredCount}/${totalCount}`;
+                reservationsCount.className = 'badge bg-info';
+            }
+        }
+    }
+
+    showAddReservationModal() {
+        // Clear form
+        document.getElementById('reservation-form').reset();
+        document.getElementById('reservation-id').value = '';
+        document.getElementById('reservation-modal-title').textContent = 'Add DHCP Reservation';
+        document.getElementById('reservation-error').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-reservation-btn').onclick = () => this.saveReservation();
+    }
+
+    editReservation(id) {
+        // Find the reservation
+        const reservation = this.currentReservations?.find(r => r.id === id);
+        if (!reservation) {
+            alert('Reservation not found');
+            return;
+        }
+
+        // Populate form
+        document.getElementById('reservation-id').value = reservation.id;
+        document.getElementById('reservation-mac').value = reservation.macAddress;
+        document.getElementById('reservation-ip').value = reservation.ipAddress;
+        document.getElementById('reservation-hostname').value = reservation.hostname || '';
+        document.getElementById('reservation-modal-title').textContent = 'Edit DHCP Reservation';
+        document.getElementById('reservation-error').style.display = 'none';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-reservation-btn').onclick = () => this.saveReservation();
+    }
+
+    async saveReservation() {
+        const form = document.getElementById('reservation-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const id = document.getElementById('reservation-id').value;
+        const macAddress = document.getElementById('reservation-mac').value.trim();
+        const ipAddress = document.getElementById('reservation-ip').value.trim();
+        const hostname = document.getElementById('reservation-hostname').value.trim();
+        
+        const isEdit = !!id;
+        const url = isEdit ? `/api/dnsmasq/reservations/${id}` : '/api/dnsmasq/reservations';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const errorDiv = document.getElementById('reservation-error');
+        
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    macAddress,
+                    ipAddress,
+                    hostname: hostname || undefined
+                })
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                errorDiv.textContent = result.error || 'Failed to save reservation';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('reservationModal'));
+            modal.hide();
+            
+            this.loadReservations();
+            this.loadDashboard(); // Refresh dashboard counts
+            
+            // Show success message
+            const action = isEdit ? 'updated' : 'created';
+            alert(`Reservation ${action} successfully!`);
+            
+        } catch (error) {
+            console.error('Error saving reservation:', error);
+            errorDiv.textContent = 'Network error occurred while saving reservation';
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    deleteReservation(id) {
+        // Find the reservation
+        const reservation = this.currentReservations?.find(r => r.id === id);
+        if (!reservation) {
+            alert('Reservation not found');
+            return;
+        }
+
+        // Populate delete modal
+        document.getElementById('delete-reservation-mac').textContent = reservation.macAddress;
+        document.getElementById('delete-reservation-ip').textContent = reservation.ipAddress;
+        document.getElementById('delete-reservation-hostname').textContent = reservation.hostname || 'Not set';
+        
+        // Show delete modal
+        const modal = new bootstrap.Modal(document.getElementById('deleteReservationModal'));
+        modal.show();
+        
+        // Setup delete confirmation
+        document.getElementById('confirm-delete-reservation-btn').onclick = () => this.confirmDeleteReservation(id);
+    }
+
+    async confirmDeleteReservation(id) {
+        try {
+            const response = await fetch(`/api/dnsmasq/reservations/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                alert(`Error: ${result.error || 'Failed to delete reservation'}`);
+                return;
+            }
+
+            // Success - close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteReservationModal'));
+            modal.hide();
+            
+            this.loadReservations();
+            this.loadDashboard(); // Refresh dashboard counts
+            
+            alert('Reservation deleted successfully!');
+            
+        } catch (error) {
+            console.error('Error deleting reservation:', error);
+            alert('Network error occurred while deleting reservation');
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -1110,6 +1667,8 @@ function enableAutoRefresh() {
                     app.loadDashboard();
                 } else if (sectionId === 'leases-section') {
                     app.loadLeases();
+                } else if (sectionId === 'reservations-section') {
+                    app.loadReservations();
                 }
             }
         }

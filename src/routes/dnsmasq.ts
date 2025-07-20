@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/express';
-import { DnsmasqConfig, DhcpLease } from '../types/dnsmasq';
+import { DnsmasqConfig, DhcpLease, StaticLease } from '../types/dnsmasq';
 import { DnsmasqService } from '../services/dnsmasqService';
 
 export const dnsmasqRoutes = Router();
@@ -71,6 +71,90 @@ dnsmasqRoutes.post('/leases/:macAddress/static', async (req: AuthenticatedReques
     res.status(500).json({
       success: false,
       error: 'Failed to convert lease to static'
+    } as ApiResponse);
+  }
+});
+
+// Get all static reservations
+dnsmasqRoutes.get('/reservations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const config = await dnsmasqService.getConfig();
+    res.json({
+      success: true,
+      data: config.staticLeases
+    } as ApiResponse<StaticLease[]>);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve reservations'
+    } as ApiResponse);
+  }
+});
+
+// Create new static reservation
+dnsmasqRoutes.post('/reservations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { macAddress, ipAddress, hostname } = req.body;
+    
+    if (!macAddress || !ipAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'MAC address and IP address are required'
+      } as ApiResponse);
+    }
+
+    await dnsmasqService.createStaticReservation(macAddress, ipAddress, hostname);
+    res.json({
+      success: true,
+      message: 'Static reservation created successfully'
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create reservation'
+    } as ApiResponse);
+  }
+});
+
+// Update static reservation
+dnsmasqRoutes.put('/reservations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { macAddress, ipAddress, hostname } = req.body;
+    
+    if (!macAddress || !ipAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'MAC address and IP address are required'
+      } as ApiResponse);
+    }
+
+    await dnsmasqService.updateStaticReservation(id, macAddress, ipAddress, hostname);
+    res.json({
+      success: true,
+      message: 'Static reservation updated successfully'
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update reservation'
+    } as ApiResponse);
+  }
+});
+
+// Delete static reservation
+dnsmasqRoutes.delete('/reservations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    await dnsmasqService.deleteStaticReservation(id);
+    res.json({
+      success: true,
+      message: 'Static reservation deleted successfully'
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete reservation'
     } as ApiResponse);
   }
 });
