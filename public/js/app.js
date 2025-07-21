@@ -702,10 +702,16 @@ class DnsmasqGUI {
             const staticBadge = isStatic ? '<span class="badge bg-success ms-2">Static</span>' : '';
             const rowClass = isStatic ? 'table-success' : '';
             
+            // Check if static reservation has different IP than current lease
+            let ipAddressDisplay = `<strong>${lease.ipAddress}</strong>`;
+            if (isStatic && staticLease.ipAddress !== lease.ipAddress) {
+                ipAddressDisplay = `<strong>${lease.ipAddress}</strong><br><small class="text-muted">Reserved: ${staticLease.ipAddress}</small>`;
+            }
+            
             row.className = rowClass;
             row.innerHTML = `
                 <td>
-                    <strong>${lease.ipAddress}</strong>
+                    ${ipAddressDisplay}
                 </td>
                 <td>
                     <code class="small">${lease.macAddress}</code>
@@ -725,7 +731,16 @@ class DnsmasqGUI {
                 <td>
                     <div class="btn-group" role="group">
                         ${isStatic ? 
-                            '<button class="btn btn-sm btn-success" disabled title="Already a static reservation"><i class="bi bi-bookmark-check"></i> Static</button>' :
+                            `<button class="btn btn-sm btn-outline-primary" 
+                                onclick="app.editStaticReservation('${staticLease.macAddress}', '${staticLease.hostname || ''}', '${staticLease.ipAddress}')"
+                                title="Edit static reservation">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="app.deleteStaticReservation('${staticLease.macAddress}', '${staticLease.hostname || ''}', '${staticLease.ipAddress}')"
+                                title="Delete static reservation">
+                            <i class="bi bi-trash"></i>
+                        </button>` :
                             `<button class="btn btn-sm btn-outline-primary" 
                                 onclick="app.convertToStatic('${lease.macAddress}', '${lease.hostname || ''}', '${lease.ipAddress}')"
                                 title="Convert to static reservation">
@@ -1319,6 +1334,7 @@ class DnsmasqGUI {
                 this.showAlert('success', 'Static reservation created successfully!');
                 this.loadLeases(); // Refresh the lease list
                 this.loadDashboard(); // Refresh dashboard counts
+                this.showBanner('DHCP reservation created. Reload the service to apply changes.');
             } else {
                 this.showAlert('danger', response.error || 'Failed to convert lease to static reservation');
             }
@@ -1328,7 +1344,130 @@ class DnsmasqGUI {
         }
     }
 
-    showLeaseDetails(macAddress) {
+    editStaticReservation(macAddress, hostname, ipAddress) {
+        // Fill in the reservation form with the current values
+        document.getElementById('reservation-mac').value = macAddress;
+        document.getElementById('reservation-ip').value = ipAddress;
+        document.getElementById('reservation-hostname').value = hostname || '';
+        
+        // Update form state to edit mode
+        const form = document.getElementById('reservation-form');
+        if (form) {
+            // Store the original MAC address for the update operation
+            form.setAttribute('data-edit-mac', macAddress);
+            
+            // Update modal title
+            const modalTitle = document.getElementById('reservation-modal-title');
+            if (modalTitle) {
+                modalTitle.textContent = 'Edit Static Reservation';
+            }
+            
+            // Update submit button text
+            const submitBtn = document.getElementById('save-reservation-btn');
+            if (submitBtn) {
+                submitBtn.textContent = 'Update Reservation';
+            }
+        }
+        
+        // Clear any error messages
+        document.getElementById('reservation-error').style.display = 'none';
+        
+        // Setup form submission event handler
+        document.getElementById('save-reservation-btn').onclick = () => this.saveReservation();
+        
+        // Show the reservation modal
+        const reservationModal = new bootstrap.Modal(document.getElementById('reservationModal'));
+        reservationModal.show();
+    }
+
+    deleteStaticReservation(macAddress, hostname, ipAddress) {
+        if (!confirm(`Delete static reservation?\n\nThis will remove the permanent reservation for:\nIP: ${ipAddress}\nMAC: ${macAddress}\nHostname: ${hostname || '(none)'}`)) {
+            return;
+        }
+
+        // First find the reservation ID by MAC address
+        this.apiCall('/dnsmasq/config').then(configResponse => {
+            if (configResponse.success) {
+                const reservation = configResponse.data.staticLeases.find(
+                    lease => lease.macAddress.toLowerCase() === macAddress.toLowerCase()
+                );
+                
+                if (reservation) {
+                    // Delete the reservation using its ID
+                    return this.apiCall(`/dnsmasq/reservations/${reservation.id}`, 'DELETE');
+                } else {
+                    throw new Error('Static reservation not found');
+                }
+            } else {
+                throw new Error('Failed to fetch reservations');
+            }
+        }).then(response => {
+            if (response.success) {
+                this.showAlert('success', 'Static reservation deleted successfully!');
+                this.loadLeases(); // Refresh the lease list
+                this.loadReservations(); // Refresh reservations list
+                this.loadDashboard(); // Refresh dashboard counts
+                this.showBanner('DHCP reservation deleted. Reload the service to apply changes.');
+            } else {
+                this.showAlert('danger', response.error || 'Failed to delete static reservation');
+            }
+        }).catch(error => {
+            console.error('Error deleting static reservation:', error);
+            this.showAlert('danger', 'Failed to delete static reservation');
+        });
+    }
+
+    async getMacManufacturer(macAddress) {
+        // Extract OUI (first 3 octets) from MAC address
+        const oui = macAddress.replace(/[:-]/g, '').substring(0, 6).toUpperCase();
+        
+        // Check local storage cache first
+        const cachedOuis = JSON.parse(localStorage.getItem('cachedOuis') || '{}');
+        if (cachedOuis[oui]) {
+            return cachedOuis[oui];
+        }
+        
+        // Look up via server (which checks local database first, then online)
+        try {
+            const manufacturer = await this.lookupOuiOnline(oui);
+            if (manufacturer && manufacturer !== 'Unknown Manufacturer') {
+                // Cache the result in local storage for future use
+                cachedOuis[oui] = manufacturer;
+                localStorage.setItem('cachedOuis', JSON.stringify(cachedOuis));
+                return manufacturer;
+            }
+        } catch (error) {
+            console.log('OUI lookup failed:', error.message);
+        }
+        
+        return 'Unknown Manufacturer';
+    }
+
+    async lookupOuiOnline(oui) {
+        try {
+            const response = await fetch(`/api/dnsmasq/oui/${oui}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data && result.data.manufacturer) {
+                    console.log(`OUI ${oui} resolved via server: ${result.data.manufacturer}`);
+                    return result.data.manufacturer;
+                }
+            }
+        } catch (error) {
+            console.log(`Server OUI lookup failed for ${oui}:`, error.message);
+        }
+        
+        return null;
+    }
+
+    async showLeaseDetails(macAddress) {
         // Find the lease data
         const tbody = document.getElementById('leases-tbody');
         const rows = tbody.querySelectorAll('tr');
@@ -1338,8 +1477,10 @@ class DnsmasqGUI {
                 const cells = row.querySelectorAll('td');
                 const ipAddress = cells[0].textContent.trim();
                 const hostname = cells[2].textContent.trim();
-                const expiry = cells[3].textContent.trim();
+                const network = cells[3].textContent.trim();
+                const expiry = cells[4].textContent.trim();
                 
+                // Show modal with loading state for manufacturer
                 this.showModal('Lease Details', `
                     <div class="row">
                         <div class="col-sm-4"><strong>IP Address:</strong></div>
@@ -1350,14 +1491,41 @@ class DnsmasqGUI {
                         <div class="col-sm-8"><code>${macAddress}</code></div>
                     </div>
                     <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Manufacturer:</strong></div>
+                        <div class="col-sm-8" id="manufacturerInfo">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            <span class="ms-2">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
                         <div class="col-sm-4"><strong>Hostname:</strong></div>
                         <div class="col-sm-8">${hostname === 'Unknown' ? '<em>Not set</em>' : hostname}</div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Network:</strong></div>
+                        <div class="col-sm-8"><small>${network}</small></div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-sm-4"><strong>Expires:</strong></div>
                         <div class="col-sm-8"><small>${expiry}</small></div>
                     </div>
                 `);
+                
+                // Get manufacturer asynchronously and update the modal
+                try {
+                    const manufacturer = await this.getMacManufacturer(macAddress);
+                    const manufacturerElement = document.getElementById('manufacturerInfo');
+                    if (manufacturerElement) {
+                        manufacturerElement.innerHTML = manufacturer;
+                    }
+                } catch (error) {
+                    console.error('Error getting manufacturer:', error);
+                    const manufacturerElement = document.getElementById('manufacturerInfo');
+                    if (manufacturerElement) {
+                        manufacturerElement.innerHTML = 'Unknown Manufacturer';
+                    }
+                }
+                
                 break;
             }
         }
@@ -2365,10 +2533,15 @@ class DnsmasqGUI {
 
     showAddReservationModal() {
         // Clear form
-        document.getElementById('reservation-form').reset();
+        const form = document.getElementById('reservation-form');
+        form.reset();
+        form.removeAttribute('data-edit-mac'); // Clear any edit mode attributes
         document.getElementById('reservation-id').value = '';
         document.getElementById('reservation-modal-title').textContent = 'Add DHCP Reservation';
         document.getElementById('reservation-error').style.display = 'none';
+        
+        // Reset button text
+        document.getElementById('save-reservation-btn').textContent = 'Add Reservation';
         
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('reservationModal'));
@@ -2403,6 +2576,8 @@ class DnsmasqGUI {
     }
 
     async saveReservation() {
+        console.log('saveReservation called'); // Debug log
+        
         const form = document.getElementById('reservation-form');
         if (!form.checkValidity()) {
             form.reportValidity();
@@ -2414,9 +2589,50 @@ class DnsmasqGUI {
         const ipAddress = document.getElementById('reservation-ip').value.trim();
         const hostname = document.getElementById('reservation-hostname').value.trim();
         
-        const isEdit = !!id;
-        const url = isEdit ? `/api/dnsmasq/reservations/${id}` : '/api/dnsmasq/reservations';
-        const method = isEdit ? 'PUT' : 'POST';
+        // Check if this is an edit operation - either by ID (from reservations page) or by MAC (from leases page)
+        const editMac = form.getAttribute('data-edit-mac');
+        const isEdit = !!id || !!editMac;
+        
+        console.log('Edit mode:', isEdit, 'ID:', id, 'Edit MAC:', editMac); // Debug log
+        
+        let url, method, identifier;
+        
+        if (editMac && !id) {
+            // Editing from leases page - need to find the reservation ID by MAC address
+            try {
+                const reservationsResponse = await this.apiCall('/dnsmasq/config');
+                if (reservationsResponse.success) {
+                    const reservation = reservationsResponse.data.staticLeases.find(
+                        lease => lease.macAddress.toLowerCase() === editMac.toLowerCase()
+                    );
+                    if (reservation) {
+                        identifier = reservation.id;
+                        url = `/api/dnsmasq/reservations/${identifier}`;
+                        method = 'PUT';
+                    } else {
+                        throw new Error('Static reservation not found');
+                    }
+                } else {
+                    throw new Error('Failed to fetch reservations');
+                }
+            } catch (error) {
+                console.error('Error finding reservation:', error);
+                document.getElementById('reservation-error').textContent = 'Failed to find existing reservation';
+                document.getElementById('reservation-error').style.display = 'block';
+                return;
+            }
+        } else if (isEdit) {
+            // Editing from reservations page with ID
+            identifier = id;
+            url = `/api/dnsmasq/reservations/${identifier}`;
+            method = 'PUT';
+        } else {
+            // Creating new reservation
+            url = '/api/dnsmasq/reservations';
+            method = 'POST';
+        }
+        
+        console.log('API call:', method, url); // Debug log
         
         const errorDiv = document.getElementById('reservation-error');
         
@@ -2446,12 +2662,16 @@ class DnsmasqGUI {
             const modal = bootstrap.Modal.getInstance(document.getElementById('reservationModal'));
             modal.hide();
             
+            // Clear the edit mode attribute
+            form.removeAttribute('data-edit-mac');
+            
             this.loadReservations();
+            this.loadLeases(); // Also refresh leases if we edited from there
             this.loadDashboard(); // Refresh dashboard counts
             
             // Show success message
-            const action = isEdit ? 'updated' : 'created';
-            alert(`Reservation ${action} successfully!`);
+            const action = (editMac || id) ? 'updated' : 'created';
+            this.showAlert('success', `Reservation ${action} successfully!`);
             
             // Show banner to reload service
             this.showBanner(`DHCP reservation ${action}. Reload the service to apply changes.`);

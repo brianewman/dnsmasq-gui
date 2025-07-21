@@ -17,12 +17,14 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@types/node-fetch": "^2.6.12",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "fs-extra": "^11.3.0",
     "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

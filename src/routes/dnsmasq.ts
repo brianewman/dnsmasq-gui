@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/express';
 import { DnsmasqConfig, DhcpLease, StaticLease } from '../types/dnsmasq';
 import { DnsmasqService } from '../services/dnsmasqService';
+import { OuiService } from '../services/ouiService';
+import fetch from 'node-fetch';
 
 export const dnsmasqRoutes = Router();
 
 const dnsmasqService = new DnsmasqService();
+const ouiService = new OuiService();
 
 // Get current dnsmasq configuration
 dnsmasqRoutes.get('/config', async (req: AuthenticatedRequest, res) => {
@@ -463,6 +466,117 @@ dnsmasqRoutes.delete('/options/:id', async (req: AuthenticatedRequest, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to delete DHCP option'
+    } as ApiResponse);
+  }
+});
+
+// OUI Lookup endpoint
+dnsmasqRoutes.get('/oui/:oui', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { oui } = req.params;
+    
+    // Validate OUI format (should be 6 hex characters)
+    if (!/^[0-9A-Fa-f]{6}$/.test(oui)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid OUI format. Expected 6 hexadecimal characters.'
+      } as ApiResponse);
+      return;
+    }
+
+    const ouiUpper = oui.toUpperCase();
+    
+    // First check local database
+    let manufacturer = await ouiService.lookupManufacturer(ouiUpper);
+    
+    if (manufacturer) {
+      res.json({
+        success: true,
+        data: {
+          oui: ouiUpper,
+          manufacturer,
+          source: 'local'
+        }
+      } as ApiResponse<{oui: string, manufacturer: string, source: string}>);
+      return;
+    }
+    
+    // If not found locally, try online lookup
+    const services = [
+      {
+        name: 'macvendors.co',
+        url: `https://macvendors.co/api/${ouiUpper}`,
+        parser: (data: any) => data?.result?.company || null
+      },
+      {
+        name: 'macvendors.com', 
+        url: `https://api.macvendors.com/${ouiUpper}`,
+        parser: (data: any) => typeof data === 'string' ? data : null
+      },
+      {
+        name: 'maclookup.app',
+        url: `https://api.maclookup.app/v2/macs/${ouiUpper}`,
+        parser: (data: any) => data?.company || null
+      }
+    ];
+
+    for (const service of services) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(service.url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'dnsmasq-gui/1.0'
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          manufacturer = service.parser(data);
+          
+          if (manufacturer && manufacturer.trim() && 
+              !manufacturer.toLowerCase().includes('not found') &&
+              !manufacturer.toLowerCase().includes('unknown')) {
+            
+            // Add to local database for future use
+            await ouiService.addOuiEntry(ouiUpper, manufacturer.trim());
+            
+            res.json({
+              success: true,
+              data: {
+                oui: ouiUpper,
+                manufacturer: manufacturer.trim(),
+                source: 'online'
+              }
+            } as ApiResponse<{oui: string, manufacturer: string, source: string}>);
+            return;
+          }
+        }
+      } catch (error: any) {
+        console.log(`${service.name} lookup failed for ${ouiUpper}:`, error.message);
+        continue;
+      }
+    }
+    
+    // If all services failed
+    res.json({
+      success: true,
+      data: {
+        oui: ouiUpper,
+        manufacturer: 'Unknown Manufacturer',
+        source: 'none'
+      }
+    } as ApiResponse<{oui: string, manufacturer: string, source: string}>);
+    
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to lookup OUI'
     } as ApiResponse);
   }
 });
