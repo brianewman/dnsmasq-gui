@@ -171,6 +171,59 @@ class DnsmasqGUI {
         
         // Add modal accessibility event listeners
         this.initModalEventListeners();
+    }
+
+    // Helper method to update filter visual states
+    updateFilterVisualState(element) {
+        if (!element) return;
+        
+        if (element.value && element.value.trim() !== '') {
+            element.classList.add('filter-active');
+        } else {
+            element.classList.remove('filter-active');
+        }
+    }
+
+    // Update all filter visual states for a given section
+    updateAllFilterVisualStates() {
+        // Leases filters
+        const leaseFilters = [
+            'network-filter',
+            'type-filter', 
+            'status-filter',
+            'search-filter'
+        ];
+        
+        // Reservations filters
+        const reservationFilters = [
+            'reservations-network-filter',
+            'reservations-status-filter',
+            'reservations-search-filter'
+        ];
+        
+        // Ranges filters
+        const rangeFilters = [
+            'ranges-tag-filter',
+            'ranges-status-filter',
+            'ranges-search-filter'
+        ];
+        
+        // Options filters
+        const optionFilters = [
+            'options-tag-filter',
+            'options-option-filter',
+            'options-status-filter',
+            'options-search-filter'
+        ];
+        
+        // Update all filter states
+        [...leaseFilters, ...reservationFilters, ...rangeFilters, ...optionFilters].forEach(filterId => {
+            const element = document.getElementById(filterId);
+            this.updateFilterVisualState(element);
+        });
+    }
+
+    initModalEventListeners() {
         
         // Add click listeners for dashboard cards
         this.initDashboardCardListeners();
@@ -234,6 +287,7 @@ class DnsmasqGUI {
         if (networkFilter) {
             networkFilter.addEventListener('change', (e) => {
                 this.currentFilters.network = e.target.value;
+                this.updateFilterVisualState(networkFilter);
                 this.applyFiltersAndRender();
             });
         }
@@ -241,6 +295,7 @@ class DnsmasqGUI {
         if (typeFilter) {
             typeFilter.addEventListener('change', (e) => {
                 this.currentFilters.type = e.target.value;
+                this.updateFilterVisualState(typeFilter);
                 this.applyFiltersAndRender();
             });
         }
@@ -248,6 +303,7 @@ class DnsmasqGUI {
         if (statusFilter) {
             statusFilter.addEventListener('change', (e) => {
                 this.currentFilters.status = e.target.value;
+                this.updateFilterVisualState(statusFilter);
                 this.applyFiltersAndRender();
             });
         }
@@ -255,6 +311,7 @@ class DnsmasqGUI {
         if (searchFilter) {
             searchFilter.addEventListener('input', (e) => {
                 this.currentFilters.search = e.target.value;
+                this.updateFilterVisualState(searchFilter);
                 this.applyFiltersAndRender();
             });
         }
@@ -276,6 +333,7 @@ class DnsmasqGUI {
         if (networkFilter) {
             networkFilter.addEventListener('change', (e) => {
                 this.currentReservationFilters.network = e.target.value;
+                this.updateFilterVisualState(networkFilter);
                 this.applyReservationFiltersAndRender();
             });
         }
@@ -283,6 +341,7 @@ class DnsmasqGUI {
         if (statusFilter) {
             statusFilter.addEventListener('change', (e) => {
                 this.currentReservationFilters.status = e.target.value;
+                this.updateFilterVisualState(statusFilter);
                 this.applyReservationFiltersAndRender();
             });
         }
@@ -290,6 +349,7 @@ class DnsmasqGUI {
         if (searchFilter) {
             searchFilter.addEventListener('input', (e) => {
                 this.currentReservationFilters.search = e.target.value;
+                this.updateFilterVisualState(searchFilter);
                 this.applyReservationFiltersAndRender();
             });
         }
@@ -311,6 +371,7 @@ class DnsmasqGUI {
         if (tagFilter) {
             tagFilter.addEventListener('change', (e) => {
                 this.currentRangeFilters.tag = e.target.value;
+                this.updateFilterVisualState(tagFilter);
                 this.applyRangeFiltersAndRender();
             });
         }
@@ -318,6 +379,7 @@ class DnsmasqGUI {
         if (statusFilter) {
             statusFilter.addEventListener('change', (e) => {
                 this.currentRangeFilters.status = e.target.value;
+                this.updateFilterVisualState(statusFilter);
                 this.applyRangeFiltersAndRender();
             });
         }
@@ -325,6 +387,7 @@ class DnsmasqGUI {
         if (searchFilter) {
             searchFilter.addEventListener('input', (e) => {
                 this.currentRangeFilters.search = e.target.value;
+                this.updateFilterVisualState(searchFilter);
                 this.applyRangeFiltersAndRender();
             });
         }
@@ -347,6 +410,7 @@ class DnsmasqGUI {
         if (tagFilter) {
             tagFilter.addEventListener('change', (e) => {
                 this.currentOptionFilters.tag = e.target.value;
+                this.updateFilterVisualState(tagFilter);
                 this.applyOptionFiltersAndRender();
             });
         }
@@ -354,6 +418,7 @@ class DnsmasqGUI {
         if (optionFilter) {
             optionFilter.addEventListener('input', (e) => {
                 this.currentOptionFilters.option = e.target.value;
+                this.updateFilterVisualState(optionFilter);
                 this.applyOptionFiltersAndRender();
             });
         }
@@ -361,6 +426,7 @@ class DnsmasqGUI {
         if (statusFilter) {
             statusFilter.addEventListener('change', (e) => {
                 this.currentOptionFilters.status = e.target.value;
+                this.updateFilterVisualState(statusFilter);
                 this.applyOptionFiltersAndRender();
             });
         }
@@ -368,6 +434,7 @@ class DnsmasqGUI {
         if (searchFilter) {
             searchFilter.addEventListener('input', (e) => {
                 this.currentOptionFilters.search = e.target.value;
+                this.updateFilterVisualState(searchFilter);
                 this.applyOptionFiltersAndRender();
             });
         }
@@ -427,17 +494,23 @@ class DnsmasqGUI {
                 break;
             case 'leases':
                 this.loadLeases();
-                // Initialize sorting headers after the section is shown and data is loaded
-                setTimeout(() => this.updateSortHeaders(), 200);
+                // Initialize sorting headers and filter visual states after the section is shown and data is loaded
+                setTimeout(() => {
+                    this.updateSortHeaders();
+                    this.updateAllFilterVisualStates();
+                }, 200);
                 break;
             case 'reservations':
                 this.loadReservations();
+                setTimeout(() => this.updateAllFilterVisualStates(), 100);
                 break;
             case 'ranges':
                 this.loadRanges();
+                setTimeout(() => this.updateAllFilterVisualStates(), 100);
                 break;
             case 'options':
                 this.loadOptions();
+                setTimeout(() => this.updateAllFilterVisualStates(), 100);
                 break;
             case 'dns':
                 this.loadDnsConfig();
@@ -1038,10 +1111,22 @@ class DnsmasqGUI {
         const statusFilter = document.getElementById('status-filter');
         const searchFilter = document.getElementById('search-filter');
         
-        if (networkFilter) networkFilter.value = '';
-        if (typeFilter) typeFilter.value = '';
-        if (statusFilter) statusFilter.value = '';
-        if (searchFilter) searchFilter.value = '';
+        if (networkFilter) {
+            networkFilter.value = '';
+            this.updateFilterVisualState(networkFilter);
+        }
+        if (typeFilter) {
+            typeFilter.value = '';
+            this.updateFilterVisualState(typeFilter);
+        }
+        if (statusFilter) {
+            statusFilter.value = '';
+            this.updateFilterVisualState(statusFilter);
+        }
+        if (searchFilter) {
+            searchFilter.value = '';
+            this.updateFilterVisualState(searchFilter);
+        }
         
         // Re-render with no filters and update counts
         this.applyFiltersAndRender();
@@ -1782,9 +1867,18 @@ class DnsmasqGUI {
         const statusFilter = document.getElementById('reservations-status-filter');
         const searchFilter = document.getElementById('reservations-search-filter');
         
-        if (networkFilter) networkFilter.value = '';
-        if (statusFilter) statusFilter.value = '';
-        if (searchFilter) searchFilter.value = '';
+        if (networkFilter) {
+            networkFilter.value = '';
+            this.updateFilterVisualState(networkFilter);
+        }
+        if (statusFilter) {
+            statusFilter.value = '';
+            this.updateFilterVisualState(statusFilter);
+        }
+        if (searchFilter) {
+            searchFilter.value = '';
+            this.updateFilterVisualState(searchFilter);
+        }
         
         // Re-render with no filters and update counts
         this.applyReservationFiltersAndRender();
@@ -2035,9 +2129,18 @@ class DnsmasqGUI {
         const statusFilter = document.getElementById('ranges-status-filter');
         const searchFilter = document.getElementById('ranges-search-filter');
         
-        if (tagFilter) tagFilter.value = '';
-        if (statusFilter) statusFilter.value = '';
-        if (searchFilter) searchFilter.value = '';
+        if (tagFilter) {
+            tagFilter.value = '';
+            this.updateFilterVisualState(tagFilter);
+        }
+        if (statusFilter) {
+            statusFilter.value = '';
+            this.updateFilterVisualState(statusFilter);
+        }
+        if (searchFilter) {
+            searchFilter.value = '';
+            this.updateFilterVisualState(searchFilter);
+        }
         
         // Re-render with no filters and update counts
         this.applyRangeFiltersAndRender();
@@ -2208,10 +2311,22 @@ class DnsmasqGUI {
         const statusFilter = document.getElementById('options-status-filter');
         const searchFilter = document.getElementById('options-search-filter');
         
-        if (tagFilter) tagFilter.value = '';
-        if (optionFilter) optionFilter.value = '';
-        if (statusFilter) statusFilter.value = '';
-        if (searchFilter) searchFilter.value = '';
+        if (tagFilter) {
+            tagFilter.value = '';
+            this.updateFilterVisualState(tagFilter);
+        }
+        if (optionFilter) {
+            optionFilter.value = '';
+            this.updateFilterVisualState(optionFilter);
+        }
+        if (statusFilter) {
+            statusFilter.value = '';
+            this.updateFilterVisualState(statusFilter);
+        }
+        if (searchFilter) {
+            searchFilter.value = '';
+            this.updateFilterVisualState(searchFilter);
+        }
         
         // Re-render with no filters and update counts
         this.applyOptionFiltersAndRender();

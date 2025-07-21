@@ -158,6 +158,25 @@ code {
     font-size: 0.75em;
 }
 
+/* Filter highlighting */
+.filter-active {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    background-color: rgba(13, 110, 253, 0.05) !important;
+}
+
+.filter-active:focus {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+}
+
+/* Special styling for select dropdowns when active */
+select.filter-active {
+    background-color: rgba(13, 110, 253, 0.05) !important;
+    color: #0d6efd !important;
+    font-weight: 500;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .container-fluid {
