@@ -22,6 +22,11 @@ class DnsmasqGUI {
             direction: 'asc'
         };
         
+        this.currentReservationSort = {
+            column: null,
+            direction: 'asc'
+        };
+        
         // Filtering state
         this.currentFilters = {
             network: '',
@@ -209,6 +214,8 @@ class DnsmasqGUI {
                     this.sortRanges(column);
                 } else if (table && table.id === 'options-table') {
                     this.sortOptions(column);
+                } else if (table && table.id === 'reservations-table') {
+                    this.sortReservations(column);
                 } else {
                     this.sortLeases(column);
                 }
@@ -1159,13 +1166,17 @@ class DnsmasqGUI {
     }
     
     updateSortHeaders() {
-        // Reset all headers
-        document.querySelectorAll('.sortable').forEach(header => {
+        const table = document.getElementById('leases-table');
+        if (!table) return;
+        
+        // Reset all headers in the leases table
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
             header.classList.remove('sort-asc', 'sort-desc');
         });
         
         // Update current sort header
-        const currentHeader = document.querySelector(`[data-sort="${this.currentSort.column}"]`);
+        const currentHeader = table.querySelector(`[data-sort="${this.currentSort.column}"]`);
         if (currentHeader) {
             currentHeader.classList.add(`sort-${this.currentSort.direction}`);
         }
@@ -1674,11 +1685,17 @@ class DnsmasqGUI {
         }
         
         // Apply filters
-        const filteredReservations = this.filterReservations(this.currentReservations);
+        let filteredReservations = this.filterReservations(this.currentReservations);
         
-        // Render filtered results
+        // Apply sorting if any
+        if (this.currentReservationSort.column) {
+            filteredReservations = this.sortFilteredReservations(filteredReservations);
+        }
+        
+        // Render filtered and sorted results
         this.displayReservations(filteredReservations);
         this.updateReservationFilterCounts(filteredReservations);
+        this.updateReservationSortHeaders();
     }
     
     filterReservations(reservations) {
@@ -1755,6 +1772,97 @@ class DnsmasqGUI {
                 reservationsCount.className = 'badge bg-info';
             }
         }
+    }
+
+    // Reservation sorting and filtering functions
+    sortReservations(column) {
+        // Cycle through three states: asc -> desc -> unsorted (null)
+        if (this.currentReservationSort.column === column) {
+            if (this.currentReservationSort.direction === 'asc') {
+                this.currentReservationSort.direction = 'desc';
+            } else if (this.currentReservationSort.direction === 'desc') {
+                // Third click: clear sorting (unsorted state)
+                this.currentReservationSort.column = null;
+                this.currentReservationSort.direction = 'asc'; // Reset direction for next time
+            }
+        } else {
+            // New column: start with ascending
+            this.currentReservationSort.column = column;
+            this.currentReservationSort.direction = 'asc';
+        }
+        
+        this.applyReservationFiltersAndRender();
+    }
+
+    sortFilteredReservations(reservations) {
+        return [...reservations].sort((a, b) => {
+            let aVal, bVal;
+            
+            switch (this.currentReservationSort.column) {
+                case 'macAddress':
+                    aVal = a.macAddress.toLowerCase();
+                    bVal = b.macAddress.toLowerCase();
+                    break;
+                    
+                case 'ipAddress':
+                    // Sort IP addresses numerically
+                    aVal = this.ipToNumber(a.ipAddress);
+                    bVal = this.ipToNumber(b.ipAddress);
+                    break;
+                    
+                case 'hostname':
+                    aVal = (a.hostname || '').toLowerCase();
+                    bVal = (b.hostname || '').toLowerCase();
+                    break;
+                    
+                case 'network':
+                    const networkA = this.getNetworkFromIP(a.ipAddress);
+                    const networkB = this.getNetworkFromIP(b.ipAddress);
+                    aVal = networkA.displayName.toLowerCase();
+                    bVal = networkB.displayName.toLowerCase();
+                    break;
+                    
+                case 'status':
+                    const isActiveA = this.currentLeases && this.currentLeases.some(lease => 
+                        lease.macAddress.toLowerCase() === a.macAddress.toLowerCase()
+                    );
+                    const isActiveB = this.currentLeases && this.currentLeases.some(lease => 
+                        lease.macAddress.toLowerCase() === b.macAddress.toLowerCase()
+                    );
+                    aVal = isActiveA ? 'active' : 'inactive';
+                    bVal = isActiveB ? 'active' : 'inactive';
+                    break;
+                    
+                default:
+                    return 0;
+            }
+            
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+                return this.currentReservationSort.direction === 'asc' ? 
+                    aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            } else {
+                return this.currentReservationSort.direction === 'asc' ? 
+                    aVal - bVal : bVal - aVal;
+            }
+        });
+    }
+
+    updateReservationSortHeaders() {
+        const table = document.getElementById('reservations-table');
+        if (!table) return;
+        
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const column = header.getAttribute('data-sort');
+            
+            // Remove existing sort classes
+            header.classList.remove('sort-asc', 'sort-desc');
+            
+            // Add appropriate sort class if this is the active sort column
+            if (column === this.currentReservationSort.column) {
+                header.classList.add(`sort-${this.currentReservationSort.direction}`);
+            }
+        });
     }
 
     // Range sorting and filtering functions

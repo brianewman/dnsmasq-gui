@@ -297,14 +297,24 @@
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
-                                <table class="table table-striped table-hover mb-0">
+                                <table class="table table-striped table-hover mb-0" id="reservations-table">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th><i class="bi bi-hdd-network me-1"></i>MAC Address</th>
-                                            <th><i class="bi bi-globe me-1"></i>IP Address</th>
-                                            <th><i class="bi bi-pc-display me-1"></i>Hostname</th>
-                                            <th><i class="bi bi-diagram-3 me-1"></i>Network</th>
-                                            <th><i class="bi bi-activity me-1"></i>Status</th>
+                                            <th class="sortable" data-sort="macAddress" style="cursor: pointer;">
+                                                <i class="bi bi-hdd-network me-1"></i>MAC Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="ipAddress" style="cursor: pointer;">
+                                                <i class="bi bi-globe me-1"></i>IP Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="hostname" style="cursor: pointer;">
+                                                <i class="bi bi-pc-display me-1"></i>Hostname <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="network" style="cursor: pointer;">
+                                                <i class="bi bi-diagram-3 me-1"></i>Network <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
+                                            <th class="sortable" data-sort="status" style="cursor: pointer;">
+                                                <i class="bi bi-activity me-1"></i>Status <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                            </th>
                                             <th><i class="bi bi-gear me-1"></i>Actions</th>
                                         </tr>
                                     </thead>
