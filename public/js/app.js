@@ -223,12 +223,6 @@ class DnsmasqGUI {
         });
     }
 
-    initModalEventListeners() {
-        
-        // Add click listeners for dashboard cards
-        this.initDashboardCardListeners();
-    }
-    
     initDashboardCardListeners() {
         // Active Leases card - navigate to DHCP Leases with IP Address sorting
         const activeLeasesCard = document.getElementById('active-leases-card');
@@ -470,6 +464,9 @@ class DnsmasqGUI {
                 });
             }
         });
+
+        // Add click listeners for dashboard cards
+        this.initDashboardCardListeners();
     }
 
     showSection(sectionName) {
