@@ -2312,6 +2312,7 @@ class DnsmasqGUI {
         tableBody.innerHTML = this.currentRanges.map(range => {
             const status = this.getRangeStatus(range);
             const statusClass = status === 'Active' ? 'text-success' : 'text-warning';
+            const rangeTag = range.tag || 'default';
             
             return `
                 <tr>
@@ -2326,6 +2327,9 @@ class DnsmasqGUI {
                             <button class="btn btn-outline-primary btn-sm" onclick="app.editRange('${range.id}')" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="app.viewRangeOptions('${rangeTag}')" title="View DHCP Options for this range">
+                                <i class="bi bi-toggles"></i>
+                            </button>
                             <button class="btn btn-outline-danger btn-sm" onclick="app.confirmDeleteRange('${range.id}')" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -2338,6 +2342,26 @@ class DnsmasqGUI {
 
     getRangeStatus(range) {
         return range.active !== false ? 'Active' : 'Inactive';
+    }
+
+    viewRangeOptions(rangeTag) {
+        // Navigate to DHCP Options section
+        this.showSection('options');
+        
+        // Set the tag filter to the range's tag
+        this.currentOptionFilters.tag = rangeTag;
+        
+        // Load options data first, then apply the filter
+        this.loadOptions().then(() => {
+            // Update the tag filter dropdown after options are loaded
+            const tagFilter = document.getElementById('options-tag-filter');
+            if (tagFilter) {
+                tagFilter.value = rangeTag;
+            }
+            
+            // Apply the filter to show only options for this tag
+            this.applyOptionFiltersAndRender();
+        });
     }
 
     getNetworkName(startIp, endIp, tag) {
@@ -2613,6 +2637,11 @@ class DnsmasqGUI {
         document.getElementById('option-modal-title').textContent = 'Add DHCP Option';
         document.getElementById('option-error').style.display = 'none';
         document.getElementById('option-custom-number').style.display = 'none';
+        
+        // Auto-populate tag if currently filtering by tag
+        if (this.currentOptionFilters.tag) {
+            document.getElementById('option-tag').value = this.currentOptionFilters.tag;
+        }
         
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('optionModal'));
