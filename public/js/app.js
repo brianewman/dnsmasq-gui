@@ -12,6 +12,16 @@ class DnsmasqGUI {
             direction: 'asc'
         };
         
+        this.currentRangeSort = {
+            column: null,
+            direction: 'asc'
+        };
+        
+        this.currentOptionSort = {
+            column: null,
+            direction: 'asc'
+        };
+        
         // Filtering state
         this.currentFilters = {
             network: '',
@@ -26,10 +36,25 @@ class DnsmasqGUI {
             search: ''
         };
         
+        this.currentRangeFilters = {
+            tag: '',
+            status: '',
+            search: ''
+        };
+        
+        this.currentOptionFilters = {
+            tag: '',
+            option: '',
+            status: '',
+            search: ''
+        };
+        
         this.currentLeases = [];
         this.currentStaticLeases = [];
         this.currentReservations = [];
         this.currentDhcpRanges = [];
+        this.currentOptions = [];
+        this.allOptions = []; // Backup of all options for filtering
         
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
@@ -133,6 +158,12 @@ class DnsmasqGUI {
         // Add filtering event listeners for DHCP reservations table
         this.initReservationFilterListeners();
         
+        // Add filtering event listeners for DHCP ranges table
+        this.initRangeFilterListeners();
+        
+        // Add filtering event listeners for DHCP options table
+        this.initOptionFilterListeners();
+        
         // Add modal accessibility event listeners
         this.initModalEventListeners();
         
@@ -172,7 +203,15 @@ class DnsmasqGUI {
         document.querySelectorAll('.sortable').forEach(header => {
             header.addEventListener('click', (e) => {
                 const column = e.target.closest('.sortable').dataset.sort;
-                this.sortLeases(column);
+                const table = e.target.closest('table');
+                
+                if (table && table.id === 'ranges-table') {
+                    this.sortRanges(column);
+                } else if (table && table.id === 'options-table') {
+                    this.sortOptions(column);
+                } else {
+                    this.sortLeases(column);
+                }
             });
         });
     }
@@ -251,6 +290,84 @@ class DnsmasqGUI {
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', () => {
                 this.clearReservationFilters();
+            });
+        }
+    }
+
+    initRangeFilterListeners() {
+        // Add change listeners to range filter controls
+        const tagFilter = document.getElementById('ranges-tag-filter');
+        const statusFilter = document.getElementById('ranges-status-filter');
+        const searchFilter = document.getElementById('ranges-search-filter');
+        const clearFiltersBtn = document.getElementById('clear-ranges-filters-btn');
+        
+        if (tagFilter) {
+            tagFilter.addEventListener('change', (e) => {
+                this.currentRangeFilters.tag = e.target.value;
+                this.applyRangeFiltersAndRender();
+            });
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => {
+                this.currentRangeFilters.status = e.target.value;
+                this.applyRangeFiltersAndRender();
+            });
+        }
+        
+        if (searchFilter) {
+            searchFilter.addEventListener('input', (e) => {
+                this.currentRangeFilters.search = e.target.value;
+                this.applyRangeFiltersAndRender();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearRangeFilters();
+            });
+        }
+    }
+
+    initOptionFilterListeners() {
+        // Add change listeners to option filter controls
+        const tagFilter = document.getElementById('options-tag-filter');
+        const optionFilter = document.getElementById('options-option-filter');
+        const statusFilter = document.getElementById('options-status-filter');
+        const searchFilter = document.getElementById('options-search-filter');
+        const clearFiltersBtn = document.getElementById('clear-options-filters-btn');
+        
+        if (tagFilter) {
+            tagFilter.addEventListener('change', (e) => {
+                this.currentOptionFilters.tag = e.target.value;
+                this.applyOptionFiltersAndRender();
+            });
+        }
+        
+        if (optionFilter) {
+            optionFilter.addEventListener('change', (e) => {
+                this.currentOptionFilters.option = e.target.value;
+                this.applyOptionFiltersAndRender();
+            });
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', (e) => {
+                this.currentOptionFilters.status = e.target.value;
+                this.applyOptionFiltersAndRender();
+            });
+        }
+        
+        if (searchFilter) {
+            searchFilter.addEventListener('input', (e) => {
+                this.currentOptionFilters.search = e.target.value;
+                this.applyOptionFiltersAndRender();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearOptionFilters();
             });
         }
     }
@@ -853,6 +970,53 @@ class DnsmasqGUI {
         return (mask >>> 0).toString(2).split('1').length - 1;
     }
     
+    parseLeaseTimeToMinutes(leaseTimeStr) {
+        if (!leaseTimeStr || leaseTimeStr.trim() === '') {
+            return 0;
+        }
+        
+        const str = leaseTimeStr.toLowerCase().trim();
+        let totalMinutes = 0;
+        
+        // Parse different time units
+        // Examples: "12h", "30m", "1d", "2h30m", "infinite"
+        
+        if (str === 'infinite') {
+            return Number.MAX_SAFE_INTEGER; // Sort infinite to the end
+        }
+        
+        // Extract days (d)
+        const daysMatch = str.match(/(\d+)d/);
+        if (daysMatch) {
+            totalMinutes += parseInt(daysMatch[1]) * 24 * 60;
+        }
+        
+        // Extract hours (h)
+        const hoursMatch = str.match(/(\d+)h/);
+        if (hoursMatch) {
+            totalMinutes += parseInt(hoursMatch[1]) * 60;
+        }
+        
+        // Extract minutes (m)
+        const minutesMatch = str.match(/(\d+)m/);
+        if (minutesMatch) {
+            totalMinutes += parseInt(minutesMatch[1]);
+        }
+        
+        // Extract seconds (s) - convert to fractional minutes
+        const secondsMatch = str.match(/(\d+)s/);
+        if (secondsMatch) {
+            totalMinutes += parseInt(secondsMatch[1]) / 60;
+        }
+        
+        // If no units found, assume it's hours (common default)
+        if (totalMinutes === 0 && /^\d+$/.test(str)) {
+            totalMinutes = parseInt(str) * 60;
+        }
+        
+        return totalMinutes;
+    }
+    
     clearFilters() {
         this.currentFilters = {
             network: '',
@@ -894,7 +1058,7 @@ class DnsmasqGUI {
     
     populateNetworkFilter() {
         const networkFilter = document.getElementById('network-filter');
-        if (!networkFilter) return;
+        const reservationsNetworkFilter = document.getElementById('reservations-network-filter');
         
         // Get networks from DHCP ranges
         const networks = new Map();
@@ -922,18 +1086,76 @@ class DnsmasqGUI {
             }
         });
         
-        // Clear existing options except the first one
-        networkFilter.innerHTML = '<option value="">All Networks</option>';
+        // Populate all network filters (excluding ranges which now uses tags)
+        [networkFilter, reservationsNetworkFilter].forEach(filter => {
+            if (!filter) return;
+            
+            // Clear existing options except the first one
+            filter.innerHTML = '<option value="">All Networks</option>';
+            
+            // Add network options sorted by display name
+            Array.from(networks.values())
+                .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                .forEach(networkInfo => {
+                    const option = document.createElement('option');
+                    option.value = networkInfo.network;
+                    option.textContent = networkInfo.displayName;
+                    filter.appendChild(option);
+                });
+        });
+    }
+
+    populateOptionsTagFilter() {
+        const tagFilter = document.getElementById('options-tag-filter');
+        if (!tagFilter || !this.allOptions) return;
         
-        // Add network options sorted by display name
-        Array.from(networks.values())
-            .sort((a, b) => a.displayName.localeCompare(b.displayName))
-            .forEach(networkInfo => {
-                const option = document.createElement('option');
-                option.value = networkInfo.network;
-                option.textContent = networkInfo.displayName;
-                networkFilter.appendChild(option);
-            });
+        // Get unique tags from options
+        const tags = new Set();
+        this.allOptions.forEach(option => {
+            if (option.tag && option.tag.trim()) {
+                tags.add(option.tag.trim());
+            }
+        });
+        
+        // Sort tags
+        const sortedTags = Array.from(tags).sort();
+        
+        // Clear existing options except the first one
+        tagFilter.innerHTML = '<option value="">All Tags</option>';
+        
+        // Add tag options
+        sortedTags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+            tagFilter.appendChild(option);
+        });
+    }
+    
+    populateRangeTagFilter() {
+        const tagFilter = document.getElementById('ranges-tag-filter');
+        if (!tagFilter || !this.currentDhcpRanges) return;
+        
+        // Get unique tags from ranges
+        const tags = new Set();
+        this.currentDhcpRanges.forEach(range => {
+            const tag = range.tag || 'default';
+            tags.add(tag.trim());
+        });
+        
+        // Sort tags
+        const sortedTags = Array.from(tags).sort();
+        
+        // Clear existing options except the first one
+        tagFilter.innerHTML = '<option value="">All Tags</option>';
+        
+        // Add tag options
+        sortedTags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+            tagFilter.appendChild(option);
+        });
     }
     
     updateSortHeaders() {
@@ -1535,6 +1757,360 @@ class DnsmasqGUI {
         }
     }
 
+    // Range sorting and filtering functions
+    sortRanges(column) {
+        // Cycle through three states: asc -> desc -> unsorted (null)
+        if (this.currentRangeSort.column === column) {
+            if (this.currentRangeSort.direction === 'asc') {
+                this.currentRangeSort.direction = 'desc';
+            } else if (this.currentRangeSort.direction === 'desc') {
+                // Third click: clear sorting (unsorted state)
+                this.currentRangeSort.column = null;
+                this.currentRangeSort.direction = 'asc'; // Reset direction for next time
+            }
+        } else {
+            // New column: start with ascending
+            this.currentRangeSort.column = column;
+            this.currentRangeSort.direction = 'asc';
+        }
+        
+        this.applyRangeFiltersAndRender();
+    }
+
+    applyRangeFiltersAndRender() {
+        if (!this.currentDhcpRanges || this.currentDhcpRanges.length === 0) {
+            this.currentRanges = [];
+            this.renderRanges();
+            this.updateRangeFilterCounts([]);
+            return;
+        }
+        
+        // Apply filters to the full dataset
+        let filteredRanges = this.filterRanges(this.currentDhcpRanges);
+        
+        // Apply sorting if any
+        if (this.currentRangeSort.column) {
+            filteredRanges = this.sortFilteredRanges(filteredRanges);
+        }
+        
+        // Update current ranges for rendering
+        this.currentRanges = filteredRanges;
+        
+        // Render filtered and sorted results
+        this.renderRanges();
+        this.updateRangeFilterCounts(filteredRanges);
+        this.updateRangeSortHeaders();
+    }
+
+    filterRanges(ranges) {
+        return ranges.filter(range => {
+            // Tag filter
+            if (this.currentRangeFilters.tag) {
+                const rangeTag = range.tag || 'default';
+                if (rangeTag !== this.currentRangeFilters.tag) {
+                    return false;
+                }
+            }
+            
+            // Status filter (active/inactive)
+            if (this.currentRangeFilters.status) {
+                const isActive = range.active !== false; // Default to active if not specified
+                if (this.currentRangeFilters.status === 'active' && !isActive) {
+                    return false;
+                }
+                if (this.currentRangeFilters.status === 'inactive' && isActive) {
+                    return false;
+                }
+            }
+            
+            // Search filter
+            if (this.currentRangeFilters.search) {
+                const searchTerm = this.currentRangeFilters.search.toLowerCase();
+                const rangeTag = (range.tag || 'default').toLowerCase();
+                return range.startIp.toLowerCase().includes(searchTerm) ||
+                       range.endIp.toLowerCase().includes(searchTerm) ||
+                       rangeTag.includes(searchTerm) ||
+                       (range.leaseTime && range.leaseTime.toLowerCase().includes(searchTerm));
+            }
+            
+            return true;
+        });
+    }
+
+    sortFilteredRanges(ranges) {
+        return [...ranges].sort((a, b) => {
+            let aVal, bVal;
+            
+            switch (this.currentRangeSort.column) {
+                case 'tag':
+                    aVal = (a.tag || 'default').toLowerCase();
+                    bVal = (b.tag || 'default').toLowerCase();
+                    break;
+                    
+                case 'startIp':
+                case 'endIp':
+                    // Sort IP addresses numerically
+                    const ipField = this.currentRangeSort.column;
+                    aVal = a[ipField].split('.').map(num => parseInt(num, 10));
+                    bVal = b[ipField].split('.').map(num => parseInt(num, 10));
+                    for (let i = 0; i < 4; i++) {
+                        if (aVal[i] !== bVal[i]) {
+                            return this.currentRangeSort.direction === 'asc' ? 
+                                aVal[i] - bVal[i] : bVal[i] - aVal[i];
+                        }
+                    }
+                    return 0;
+                    
+                case 'leaseDuration':
+                    // Convert lease time strings to duration in minutes for proper sorting
+                    aVal = this.parseLeaseTimeToMinutes(a.leaseTime || '');
+                    bVal = this.parseLeaseTimeToMinutes(b.leaseTime || '');
+                    return this.currentRangeSort.direction === 'asc' ? 
+                        aVal - bVal : bVal - aVal;
+                    
+                case 'status':
+                    aVal = a.active !== false ? 'active' : 'inactive';
+                    bVal = b.active !== false ? 'active' : 'inactive';
+                    break;
+                    
+                default:
+                    return 0;
+            }
+            
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+                return this.currentRangeSort.direction === 'asc' ? 
+                    aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            } else {
+                return this.currentRangeSort.direction === 'asc' ? 
+                    aVal - bVal : bVal - aVal;
+            }
+        });
+    }
+
+    clearRangeFilters() {
+        this.currentRangeFilters = { tag: '', status: '', search: '' };
+        
+        // Clear UI controls
+        const tagFilter = document.getElementById('ranges-tag-filter');
+        const statusFilter = document.getElementById('ranges-status-filter');
+        const searchFilter = document.getElementById('ranges-search-filter');
+        
+        if (tagFilter) tagFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        if (searchFilter) searchFilter.value = '';
+        
+        // Re-render with no filters and update counts
+        this.applyRangeFiltersAndRender();
+    }
+
+    updateRangeFilterCounts(filteredRanges) {
+        const rangesCount = document.getElementById('ranges-count');
+        if (rangesCount) {
+            const totalCount = this.currentDhcpRanges ? this.currentDhcpRanges.length : 0;
+            const filteredCount = filteredRanges.length;
+            
+            if (filteredCount === totalCount) {
+                rangesCount.textContent = totalCount;
+                rangesCount.className = 'badge bg-success';
+            } else {
+                rangesCount.textContent = `${filteredCount}/${totalCount}`;
+                rangesCount.className = 'badge bg-info';
+            }
+        }
+    }
+
+    updateRangeSortHeaders() {
+        const table = document.getElementById('ranges-table');
+        if (!table) return;
+        
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const column = header.getAttribute('data-sort');
+            
+            // Remove existing sort classes
+            header.classList.remove('sort-asc', 'sort-desc');
+            
+            // Add appropriate sort class if this is the active sort column
+            if (column === this.currentRangeSort.column) {
+                header.classList.add(`sort-${this.currentRangeSort.direction}`);
+            }
+        });
+    }
+
+    // Option sorting and filtering functions
+    sortOptions(column) {
+        // Cycle through three states: asc -> desc -> unsorted (null)
+        if (this.currentOptionSort.column === column) {
+            if (this.currentOptionSort.direction === 'asc') {
+                this.currentOptionSort.direction = 'desc';
+            } else if (this.currentOptionSort.direction === 'desc') {
+                // Third click: clear sorting (unsorted state)
+                this.currentOptionSort.column = null;
+                this.currentOptionSort.direction = 'asc'; // Reset direction for next time
+            }
+        } else {
+            // New column: start with ascending
+            this.currentOptionSort.column = column;
+            this.currentOptionSort.direction = 'asc';
+        }
+        
+        this.applyOptionFiltersAndRender();
+    }
+
+    applyOptionFiltersAndRender() {
+        if (!this.allOptions || this.allOptions.length === 0) {
+            this.currentOptions = [];
+            this.renderOptions();
+            this.updateOptionFilterCounts([]);
+            return;
+        }
+        
+        // Apply filters to the full dataset
+        let filteredOptions = this.filterOptions(this.allOptions);
+        
+        // Apply sorting if any
+        if (this.currentOptionSort.column) {
+            filteredOptions = this.sortFilteredOptions(filteredOptions);
+        }
+        
+        // Update current options for rendering
+        this.currentOptions = filteredOptions;
+        
+        // Render filtered and sorted results
+        this.renderOptions();
+        this.updateOptionFilterCounts(filteredOptions);
+        this.updateOptionSortHeaders();
+    }
+
+    filterOptions(options) {
+        return options.filter(option => {
+            // Tag filter
+            if (this.currentOptionFilters.tag) {
+                if (!option.tag || option.tag.toLowerCase() !== this.currentOptionFilters.tag.toLowerCase()) {
+                    return false;
+                }
+            }
+            
+            // Option filter (option code/name)
+            if (this.currentOptionFilters.option) {
+                const filterTerm = this.currentOptionFilters.option.toLowerCase();
+                const optionCodeMatch = option.option && option.option.toString().toLowerCase().includes(filterTerm);
+                const optionNameMatch = this.getOptionName(option.option).toLowerCase().includes(filterTerm);
+                if (!optionCodeMatch && !optionNameMatch) {
+                    return false;
+                }
+            }
+            
+            // Status filter (active/inactive)
+            if (this.currentOptionFilters.status) {
+                const isActive = option.active !== false; // Default to active if not specified
+                if (this.currentOptionFilters.status === 'active' && !isActive) {
+                    return false;
+                }
+                if (this.currentOptionFilters.status === 'inactive' && isActive) {
+                    return false;
+                }
+            }
+            
+            // Search filter
+            if (this.currentOptionFilters.search) {
+                const searchTerm = this.currentOptionFilters.search.toLowerCase();
+                return (option.tag && option.tag.toLowerCase().includes(searchTerm)) ||
+                       (option.option && option.option.toString().toLowerCase().includes(searchTerm)) ||
+                       this.getOptionName(option.option).toLowerCase().includes(searchTerm) ||
+                       (option.value && option.value.toLowerCase().includes(searchTerm));
+            }
+            
+            return true;
+        });
+    }
+
+    sortFilteredOptions(options) {
+        return [...options].sort((a, b) => {
+            let aVal, bVal;
+            
+            switch (this.currentOptionSort.column) {
+                case 'tag':
+                    aVal = (a.tag || '').toLowerCase();
+                    bVal = (b.tag || '').toLowerCase();
+                    break;
+                    
+                case 'option':
+                    aVal = (a.option || '').toLowerCase();
+                    bVal = (b.option || '').toLowerCase();
+                    break;
+                    
+                case 'value':
+                    aVal = (a.value || '').toLowerCase();
+                    bVal = (b.value || '').toLowerCase();
+                    break;
+                    
+                case 'status':
+                    aVal = a.active !== false ? 'active' : 'inactive';
+                    bVal = b.active !== false ? 'active' : 'inactive';
+                    break;
+                    
+                default:
+                    return 0;
+            }
+            
+            return this.currentOptionSort.direction === 'asc' ? 
+                aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+    }
+
+    clearOptionFilters() {
+        this.currentOptionFilters = { tag: '', option: '', status: '', search: '' };
+        
+        // Clear UI controls
+        const tagFilter = document.getElementById('options-tag-filter');
+        const optionFilter = document.getElementById('options-option-filter');
+        const statusFilter = document.getElementById('options-status-filter');
+        const searchFilter = document.getElementById('options-search-filter');
+        
+        if (tagFilter) tagFilter.value = '';
+        if (optionFilter) optionFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        if (searchFilter) searchFilter.value = '';
+        
+        // Re-render with no filters and update counts
+        this.applyOptionFiltersAndRender();
+    }
+
+    updateOptionFilterCounts(filteredOptions) {
+        const optionsCount = document.getElementById('options-count');
+        if (optionsCount) {
+            const totalCount = this.allOptions ? this.allOptions.length : 0;
+            const filteredCount = filteredOptions.length;
+            
+            if (filteredCount === totalCount) {
+                optionsCount.textContent = totalCount;
+                optionsCount.className = 'badge bg-primary';
+            } else {
+                optionsCount.textContent = `${filteredCount}/${totalCount}`;
+                optionsCount.className = 'badge bg-info';
+            }
+        }
+    }
+
+    updateOptionSortHeaders() {
+        const table = document.getElementById('options-table');
+        if (!table) return;
+        
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const column = header.getAttribute('data-sort');
+            
+            // Remove existing sort classes
+            header.classList.remove('sort-asc', 'sort-desc');
+            
+            // Add appropriate sort class if this is the active sort column
+            if (column === this.currentOptionSort.column) {
+                header.classList.add(`sort-${this.currentOptionSort.direction}`);
+            }
+        });
+    }
+
     showAddReservationModal() {
         // Clear form
         document.getElementById('reservation-form').reset();
@@ -1705,8 +2281,13 @@ class DnsmasqGUI {
                 return;
             }
             
+            this.currentDhcpRanges = result.data || [];
             this.currentRanges = result.data || [];
-            this.renderRanges();
+            
+            // Populate tag filter with available tags
+            this.populateRangeTagFilter();
+            
+            this.applyRangeFiltersAndRender();
             this.updateRangesCount();
         } catch (error) {
             console.error('Error loading DHCP ranges:', error);
@@ -1953,8 +2534,10 @@ class DnsmasqGUI {
                 return;
             }
             
+            this.allOptions = result.data || [];
             this.currentOptions = result.data || [];
-            this.renderOptions();
+            this.populateOptionsTagFilter();
+            this.applyOptionFiltersAndRender();
             this.updateOptionsCount();
         } catch (error) {
             console.error('Error loading DHCP options:', error);
