@@ -1097,6 +1097,9 @@ class DnsmasqGUI {
         [networkFilter, reservationsNetworkFilter].forEach(filter => {
             if (!filter) return;
             
+            // Store the current selection
+            const currentSelection = filter.value;
+            
             // Clear existing options except the first one
             filter.innerHTML = '<option value="">All Networks</option>';
             
@@ -1109,12 +1112,20 @@ class DnsmasqGUI {
                     option.textContent = networkInfo.displayName;
                     filter.appendChild(option);
                 });
+                
+            // Restore the previous selection if it still exists
+            if (currentSelection && Array.from(filter.options).some(option => option.value === currentSelection)) {
+                filter.value = currentSelection;
+            }
         });
     }
 
     populateOptionsTagFilter() {
         const tagFilter = document.getElementById('options-tag-filter');
         if (!tagFilter || !this.allOptions) return;
+        
+        // Store the current selection
+        const currentSelection = tagFilter.value;
         
         // Get unique tags from options
         const tags = new Set();
@@ -1137,11 +1148,19 @@ class DnsmasqGUI {
             option.textContent = tag;
             tagFilter.appendChild(option);
         });
+        
+        // Restore the previous selection if it still exists
+        if (currentSelection && Array.from(tagFilter.options).some(option => option.value === currentSelection)) {
+            tagFilter.value = currentSelection;
+        }
     }
     
     populateRangeTagFilter() {
         const tagFilter = document.getElementById('ranges-tag-filter');
         if (!tagFilter || !this.currentDhcpRanges) return;
+        
+        // Store the current selection
+        const currentSelection = tagFilter.value;
         
         // Get unique tags from ranges
         const tags = new Set();
@@ -1163,6 +1182,11 @@ class DnsmasqGUI {
             option.textContent = tag;
             tagFilter.appendChild(option);
         });
+        
+        // Restore the previous selection if it still exists
+        if (currentSelection && Array.from(tagFilter.options).some(option => option.value === currentSelection)) {
+            tagFilter.value = currentSelection;
+        }
     }
     
     updateSortHeaders() {
@@ -1663,6 +1687,9 @@ class DnsmasqGUI {
             }
         });
         
+        // Store the current selection
+        const currentSelection = networkFilter.value;
+        
         // Clear existing options except the first one
         networkFilter.innerHTML = '<option value="">All Networks</option>';
         
@@ -1675,6 +1702,11 @@ class DnsmasqGUI {
                 option.textContent = networkInfo.displayName;
                 networkFilter.appendChild(option);
             });
+            
+        // Restore the previous selection if it still exists
+        if (currentSelection && Array.from(networkFilter.options).some(option => option.value === currentSelection)) {
+            networkFilter.value = currentSelection;
+        }
     }
     
     applyReservationFiltersAndRender() {
