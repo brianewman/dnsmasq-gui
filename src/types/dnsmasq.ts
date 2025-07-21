@@ -8,6 +8,7 @@ export interface DhcpRange {
   netmask?: string;
   leaseTime: string;
   tag?: string;
+  active?: boolean;
 }
 
 export interface DhcpOption {
@@ -16,6 +17,7 @@ export interface DhcpOption {
   value: string;
   tag?: string;
   force?: boolean;
+  active?: boolean;
 }
 
 export interface StaticLease {

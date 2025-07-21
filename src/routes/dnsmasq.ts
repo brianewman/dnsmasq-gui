@@ -159,6 +159,30 @@ dnsmasqRoutes.delete('/reservations/:id', async (req: AuthenticatedRequest, res)
   }
 });
 
+// Reload dnsmasq service (less disruptive than restart)
+dnsmasqRoutes.post('/reload', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    await dnsmasqService.reload();
+    res.json({
+      success: true,
+      message: 'DNSmasq service reloaded'
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reload dnsmasq service'
+    } as ApiResponse);
+  }
+});
+
 // Restart dnsmasq service
 dnsmasqRoutes.post('/restart', async (req: AuthenticatedRequest, res) => {
   try {
@@ -227,7 +251,7 @@ dnsmasqRoutes.post('/ranges', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    const { startIp, endIp, leaseTime, tag, netmask } = req.body;
+    const { startIp, endIp, leaseTime, tag, netmask, active } = req.body;
 
     // Validation
     if (!startIp || !endIp) {
@@ -243,7 +267,8 @@ dnsmasqRoutes.post('/ranges', async (req: AuthenticatedRequest, res) => {
       endIp,
       leaseTime: leaseTime || '12h',
       tag: tag || undefined,
-      netmask: netmask || '255.255.255.0'
+      netmask: netmask || '255.255.255.0',
+      active
     });
 
     res.json({
@@ -271,14 +296,15 @@ dnsmasqRoutes.put('/ranges/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     const { id } = req.params;
-    const { startIp, endIp, leaseTime, tag, netmask } = req.body;
+    const { startIp, endIp, leaseTime, tag, netmask, active } = req.body;
 
     const updatedRange = await dnsmasqService.updateRange(id, {
       startIp,
       endIp,
       leaseTime,
       tag,
-      netmask
+      netmask,
+      active
     });
 
     res.json({
@@ -348,7 +374,7 @@ dnsmasqRoutes.post('/options', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    const { optionNumber, value, tag, description } = req.body;
+    const { optionNumber, value, tag, description, active } = req.body;
 
     // Validation
     if (!optionNumber || !value) {
@@ -363,7 +389,8 @@ dnsmasqRoutes.post('/options', async (req: AuthenticatedRequest, res) => {
       optionNumber,
       value,
       tag: tag || undefined,
-      description: description || undefined
+      description: description || undefined,
+      active
     });
 
     res.json({
@@ -391,13 +418,14 @@ dnsmasqRoutes.put('/options/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     const { id } = req.params;
-    const { optionNumber, value, tag, description } = req.body;
+    const { optionNumber, value, tag, description, active } = req.body;
 
     const updatedOption = await dnsmasqService.updateOption(id, {
       optionNumber,
       value,
       tag,
-      description
+      description,
+      active
     });
 
     res.json({

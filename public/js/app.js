@@ -102,6 +102,28 @@ class DnsmasqGUI {
             restartBtn.addEventListener('click', () => this.restartService());
         }
         
+        // Add event listener for reload button
+        const reloadBtn = document.getElementById('reload-service-btn');
+        if (reloadBtn) {
+            reloadBtn.addEventListener('click', () => this.reloadService());
+        }
+        
+        // Add event listeners for banner buttons
+        const bannerReloadBtn = document.getElementById('banner-reload-btn');
+        if (bannerReloadBtn) {
+            bannerReloadBtn.addEventListener('click', () => this.reloadService());
+        }
+        
+        const bannerRestartBtn = document.getElementById('banner-restart-btn');
+        if (bannerRestartBtn) {
+            bannerRestartBtn.addEventListener('click', () => this.restartService());
+        }
+        
+        const bannerDismissBtn = document.getElementById('banner-dismiss-btn');
+        if (bannerDismissBtn) {
+            bannerDismissBtn.addEventListener('click', () => this.dismissBanner());
+        }
+        
         // Add sorting event listeners for DHCP leases table
         this.initSortingListeners();
         
@@ -1070,11 +1092,44 @@ class DnsmasqGUI {
             const response = await this.apiCall('/dnsmasq/restart', 'POST');
             if (response.success) {
                 alert('DNSmasq service restarted successfully!');
+                this.dismissBanner();
                 this.loadDashboard();
             }
         } catch (error) {
             alert('Failed to restart DNSmasq service');
             console.error(error);
+        }
+    }
+
+    async reloadService() {
+        if (!confirm('Reload DNSmasq configuration? This will apply changes without interrupting active connections.')) return;
+
+        try {
+            const response = await this.apiCall('/dnsmasq/reload', 'POST');
+            if (response.success) {
+                alert('DNSmasq service reloaded successfully!');
+                this.dismissBanner();
+                this.loadDashboard();
+            }
+        } catch (error) {
+            alert('Failed to reload DNSmasq service');
+            console.error(error);
+        }
+    }
+
+    showBanner(message = 'Reload the DNSmasq service to apply recent configuration changes.') {
+        const banner = document.getElementById('service-banner');
+        const messageSpan = document.getElementById('banner-message');
+        if (banner && messageSpan) {
+            messageSpan.textContent = message;
+            banner.classList.remove('d-none');
+        }
+    }
+
+    dismissBanner() {
+        const banner = document.getElementById('service-banner');
+        if (banner) {
+            banner.classList.add('d-none');
         }
     }
 
@@ -1570,6 +1625,9 @@ class DnsmasqGUI {
             const action = isEdit ? 'updated' : 'created';
             alert(`Reservation ${action} successfully!`);
             
+            // Show banner to reload service
+            this.showBanner(`DHCP reservation ${action}. Reload the service to apply changes.`);
+            
         } catch (error) {
             console.error('Error saving reservation:', error);
             errorDiv.textContent = 'Network error occurred while saving reservation';
@@ -1623,6 +1681,9 @@ class DnsmasqGUI {
             
             alert('Reservation deleted successfully!');
             
+            // Show banner to reload service
+            this.showBanner('DHCP reservation deleted. Reload the service to apply changes.');
+            
         } catch (error) {
             console.error('Error deleting reservation:', error);
             alert('Network error occurred while deleting reservation');
@@ -1673,11 +1734,11 @@ class DnsmasqGUI {
             
             return `
                 <tr>
+                    <td>${range.tag ? `<span class="badge bg-secondary">${range.tag}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td><code>${range.startIp}</code></td>
                     <td><code>${range.endIp}</code></td>
                     <td><code>${range.netmask || '255.255.255.0'}</code></td>
                     <td>${range.leaseTime}</td>
-                    <td>${range.tag ? `<span class="badge bg-secondary">${range.tag}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
                     <td>
                         <div class="btn-group btn-group-sm" role="group">
@@ -1695,9 +1756,7 @@ class DnsmasqGUI {
     }
 
     getRangeStatus(range) {
-        // For now, assume all ranges are active - in a real implementation, 
-        // you might check if the range conflicts or has other issues
-        return 'Active';
+        return range.active !== false ? 'Active' : 'Inactive';
     }
 
     getNetworkName(startIp, endIp, tag) {
@@ -1722,6 +1781,7 @@ class DnsmasqGUI {
         // Clear form
         document.getElementById('range-form').reset();
         document.getElementById('range-id').value = '';
+        document.getElementById('range-active').checked = true; // Default to active
         document.getElementById('range-modal-title').textContent = 'Add DHCP Range';
         document.getElementById('range-error').style.display = 'none';
         
@@ -1748,6 +1808,7 @@ class DnsmasqGUI {
         document.getElementById('range-lease-time').value = range.leaseTime || '12h';
         document.getElementById('range-tag').value = range.tag || '';
         document.getElementById('range-netmask').value = range.netmask || '255.255.255.0';
+        document.getElementById('range-active').checked = range.active !== false;
         document.getElementById('range-modal-title').textContent = 'Edit DHCP Range';
         document.getElementById('range-error').style.display = 'none';
         
@@ -1772,6 +1833,7 @@ class DnsmasqGUI {
         const leaseTime = document.getElementById('range-lease-time').value.trim();
         const tag = document.getElementById('range-tag').value.trim();
         const netmask = document.getElementById('range-netmask').value;
+        const active = document.getElementById('range-active').checked;
 
         const errorDiv = document.getElementById('range-error');
         
@@ -1791,7 +1853,8 @@ class DnsmasqGUI {
                     endIp,
                     leaseTime,
                     tag: tag || undefined,
-                    netmask
+                    netmask,
+                    active
                 })
             });
 
@@ -1812,6 +1875,9 @@ class DnsmasqGUI {
             // Show success message
             const action = isEdit ? 'updated' : 'created';
             alert(`Range ${action} successfully!`);
+            
+            // Show banner to reload service
+            this.showBanner(`DHCP range ${action}. Reload the service to apply changes.`);
             
         } catch (error) {
             console.error('Error saving range:', error);
@@ -1863,6 +1929,9 @@ class DnsmasqGUI {
             this.loadRanges();
             alert('Range deleted successfully!');
             
+            // Show banner to reload service
+            this.showBanner('DHCP range deleted. Reload the service to apply changes.');
+            
         } catch (error) {
             console.error('Error deleting range:', error);
             alert('Network error occurred while deleting range');
@@ -1899,7 +1968,7 @@ class DnsmasqGUI {
         if (!this.currentOptions || this.currentOptions.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center text-muted">
+                    <td colspan="5" class="text-center text-muted">
                         <i class="bi bi-info-circle me-2"></i>No DHCP options configured
                     </td>
                 </tr>
@@ -1909,15 +1978,14 @@ class DnsmasqGUI {
 
         tableBody.innerHTML = this.currentOptions.map(option => {
             const optionName = this.getOptionName(option.option);
-            const status = 'Active'; // For now, assume all options are active
-            const statusClass = 'text-success';
+            const status = option.active !== false ? 'Active' : 'Inactive';
+            const statusClass = status === 'Active' ? 'text-success' : 'text-warning';
             
             return `
                 <tr>
+                    <td>${option.tag ? `<span class="badge bg-secondary">${option.tag}</span>` : '<span class="text-muted">All</span>'}</td>
                     <td><code>${option.option}</code> - ${optionName}</td>
                     <td><code>${option.value}</code></td>
-                    <td>${option.tag ? `<span class="badge bg-secondary">${option.tag}</span>` : '<span class="text-muted">All</span>'}</td>
-                    <td>${optionName}</td>
                     <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
                     <td>
                         <div class="btn-group btn-group-sm" role="group">
@@ -1958,6 +2026,7 @@ class DnsmasqGUI {
         // Clear form
         document.getElementById('option-form').reset();
         document.getElementById('option-id').value = '';
+        document.getElementById('option-active').checked = true; // Default to active
         document.getElementById('option-modal-title').textContent = 'Add DHCP Option';
         document.getElementById('option-error').style.display = 'none';
         document.getElementById('option-custom-number').style.display = 'none';
@@ -1995,9 +2064,23 @@ class DnsmasqGUI {
         document.getElementById('option-number').value = option.option;
         document.getElementById('option-value').value = option.value;
         document.getElementById('option-tag').value = option.tag || '';
-        document.getElementById('option-description').value = ''; // We don't store description currently
+        document.getElementById('option-active').checked = option.active !== false;
         document.getElementById('option-modal-title').textContent = 'Edit DHCP Option';
         document.getElementById('option-error').style.display = 'none';
+        
+        // Handle custom option number display
+        const customField = document.getElementById('option-custom-number');
+        const standardOptions = ['1', '3', '6', '15', '28', '42', '121'];
+        if (!standardOptions.includes(option.option.toString())) {
+            // This is a custom option
+            document.getElementById('option-number').value = 'custom';
+            customField.value = option.option;
+            customField.style.display = 'block';
+            customField.required = true;
+        } else {
+            customField.style.display = 'none';
+            customField.required = false;
+        }
         
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('optionModal'));
@@ -2005,6 +2088,19 @@ class DnsmasqGUI {
         
         // Setup form submission
         document.getElementById('save-option-btn').onclick = () => this.saveOption();
+        
+        // Setup custom option number toggle
+        document.getElementById('option-number').onchange = (e) => {
+            const customField = document.getElementById('option-custom-number');
+            if (e.target.value === 'custom') {
+                customField.style.display = 'block';
+                customField.required = true;
+            } else {
+                customField.style.display = 'none';
+                customField.required = false;
+                customField.value = '';
+            }
+        };
     }
 
     async saveOption() {
@@ -2019,7 +2115,7 @@ class DnsmasqGUI {
         const customNumberField = document.getElementById('option-custom-number');
         const value = document.getElementById('option-value').value.trim();
         const tag = document.getElementById('option-tag').value.trim();
-        const description = document.getElementById('option-description').value.trim();
+        const active = document.getElementById('option-active').checked;
 
         let optionNumber;
         if (optionNumberField.value === 'custom') {
@@ -2051,7 +2147,7 @@ class DnsmasqGUI {
                     optionNumber,
                     value,
                     tag: tag || undefined,
-                    description: description || undefined
+                    active
                 })
             });
 
@@ -2072,6 +2168,9 @@ class DnsmasqGUI {
             // Show success message
             const action = isEdit ? 'updated' : 'created';
             alert(`Option ${action} successfully!`);
+            
+            // Show banner to reload service
+            this.showBanner(`DHCP option ${action}. Reload the service to apply changes.`);
             
         } catch (error) {
             console.error('Error saving option:', error);
@@ -2122,6 +2221,9 @@ class DnsmasqGUI {
             
             this.loadOptions();
             alert('Option deleted successfully!');
+            
+            // Show banner to reload service
+            this.showBanner('DHCP option deleted. Reload the service to apply changes.');
             
         } catch (error) {
             console.error('Error deleting option:', error);

@@ -115,12 +115,26 @@ export class DnsmasqService {
       }
       
       const content = await fs.readFile(rangesPath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const lines = content.split('\n').filter(line => line.trim());
       const ranges: DhcpRange[] = [];
       
       for (const line of lines) {
-        if (line.startsWith('dhcp-range=')) {
-          const rangeValue = line.substring('dhcp-range='.length);
+        let actualLine = line.trim();
+        let isActive = true;
+        
+        // Check if line is commented out (inactive)
+        if (actualLine.startsWith('#')) {
+          isActive = false;
+          // Remove comment and (inactive) suffix
+          actualLine = actualLine.substring(1).replace('(inactive)', '').trim();
+        }
+        
+        // Skip non-dhcp-range lines
+        if (!actualLine.startsWith('dhcp-range=')) {
+          continue;
+        }
+        
+        const rangeValue = actualLine.substring('dhcp-range='.length);
           const parts = rangeValue.split(',');
           
           let startIp, endIp, netmask, leaseTime, tag;
@@ -145,10 +159,10 @@ export class DnsmasqService {
               endIp,
               netmask,
               leaseTime,
-              tag
+              tag,
+              active: isActive
             });
           }
-        }
       }
       
       console.log(`Loaded ${ranges.length} DHCP ranges from ${rangesPath}`);
@@ -168,12 +182,26 @@ export class DnsmasqService {
       }
       
       const content = await fs.readFile(optionsPath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const lines = content.split('\n').filter(line => line.trim());
       const options: DhcpOption[] = [];
       
       for (const line of lines) {
-        if (line.startsWith('dhcp-option=')) {
-          const optionValue = line.substring('dhcp-option='.length);
+        let actualLine = line.trim();
+        let isActive = true;
+        
+        // Check if line is commented out (inactive)
+        if (actualLine.startsWith('#')) {
+          isActive = false;
+          // Remove comment and (inactive) suffix
+          actualLine = actualLine.substring(1).replace('(inactive)', '').trim();
+        }
+        
+        // Skip non-dhcp-option lines
+        if (!actualLine.startsWith('dhcp-option=')) {
+          continue;
+        }
+        
+        const optionValue = actualLine.substring('dhcp-option='.length);
           let tag: string | undefined;
           let remainingValue = optionValue;
           
@@ -195,10 +223,10 @@ export class DnsmasqService {
               id: `option-${options.length}`,
               option,
               value,
-              tag
+              tag,
+              active: isActive
             });
           }
-        }
       }
       
       console.log(`Loaded ${options.length} DHCP options from ${optionsPath}`);
@@ -304,6 +332,12 @@ export class DnsmasqService {
         // Add netmask (default to 255.255.255.0 if not specified)
         rangeStr += `,${range.netmask || '255.255.255.0'}`;
         rangeStr += `,${range.leaseTime}`;
+        
+        // Comment out inactive ranges
+        if (range.active === false) {
+          rangeStr = `# ${rangeStr} (inactive)`;
+        }
+        
         rangesContent += `${rangeStr}\n`;
       }
       
@@ -318,6 +352,12 @@ export class DnsmasqService {
         let optionStr = `dhcp-option=`;
         if (option.tag) optionStr += `tag:${option.tag},`;
         optionStr += `${option.option},${option.value}`;
+        
+        // Comment out inactive options
+        if (option.active === false) {
+          optionStr = `# ${optionStr} (inactive)`;
+        }
+        
         optionsContent += `${optionStr}\n`;
       }
       
@@ -566,6 +606,7 @@ export class DnsmasqService {
   }
 
   async restart(): Promise<void> {
+    console.log('Starting DNSmasq restart operation...');
     try {
       const restartFlag = '/tmp/dnsmasq-restart-requested';
       const restartResult = '/tmp/dnsmasq-restart-result';
@@ -581,8 +622,8 @@ export class DnsmasqService {
       await fs.writeFile(restartFlag, new Date().toISOString());
       console.log('DNSmasq restart requested via flag file');
       
-      // Wait for the restart handler to process the request (max 10 seconds)
-      const maxWait = 10000; // 10 seconds
+      // Wait for the restart handler to process the request (max 20 seconds)
+      const maxWait = 20000; // 20 seconds
       const pollInterval = 500; // 500ms
       let waited = 0;
       
@@ -608,11 +649,62 @@ export class DnsmasqService {
       }
       
       // If we get here, the restart timed out
-      throw new Error('Restart request timed out. The restart handler may not be running.');
+      console.log('Restart request timed out after 20 seconds');
+      throw new Error('Restart request timed out after 20 seconds. The restart handler may not be running or DNSmasq restart is taking longer than expected.');
       
     } catch (error: any) {
       console.log('Failed to restart dnsmasq service:', error.message);
       throw new Error(`Failed to restart DNSmasq service: ${error.message}`);
+    }
+  }
+
+  async reload(): Promise<void> {
+    console.log('Starting DNSmasq reload operation...');
+    try {
+      const reloadFlag = '/tmp/dnsmasq-reload-requested';
+      const reloadResult = '/tmp/dnsmasq-reload-result';
+      
+      // Clean up any existing result file
+      try {
+        await fs.unlink(reloadResult);
+      } catch (error) {
+        // File doesn't exist, that's fine
+      }
+      
+      // Create reload request flag
+      await fs.writeFile(reloadFlag, new Date().toISOString());
+      console.log('DNSmasq reload requested via flag file');
+      
+      // Wait for the reload handler to process the request (max 20 seconds)
+      const maxWaitTime = 20000; // 20 seconds
+      const startTime = Date.now();
+      
+      while (Date.now() - startTime < maxWaitTime) {
+        try {
+          const result = await fs.readFile(reloadResult, 'utf8');
+          if (result.trim() === 'success') {
+            console.log('DNSmasq service reloaded successfully');
+            return;
+          } else {
+            throw new Error('DNSmasq reload failed on the system');
+          }
+        } catch (error: any) {
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
+        
+        // Wait 500ms before checking again
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // If we get here, the reload timed out
+      console.log('Reload request timed out after 20 seconds');
+      throw new Error('Reload request timed out after 20 seconds. The restart handler may not be running or DNSmasq reload is taking longer than expected.');
+      
+    } catch (error: any) {
+      console.log('Failed to reload dnsmasq service:', error.message);
+      throw new Error(`Failed to reload DNSmasq service: ${error.message}`);
     }
   }
 
@@ -978,12 +1070,18 @@ export class DnsmasqService {
     }
   }
 
-  async createOption(optionData: { optionNumber: number | string, value: string, tag?: string, description?: string }): Promise<DhcpOption> {
+  async createOption(optionData: { optionNumber: number | string, value: string, tag?: string, description?: string, active?: boolean }): Promise<DhcpOption> {
     const config = await this.getConfig();
     
     // Generate unique ID
     const id = `option-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newOption: DhcpOption = { id, option: optionData.optionNumber, value: optionData.value, tag: optionData.tag };
+    const newOption: DhcpOption = { 
+      id, 
+      option: optionData.optionNumber, 
+      value: optionData.value, 
+      tag: optionData.tag,
+      active: optionData.active
+    };
     
     // Add to config
     if (!config.dhcpOptions) {
@@ -997,7 +1095,7 @@ export class DnsmasqService {
     return newOption;
   }
 
-  async updateOption(id: string, updates: Partial<{ optionNumber: number | string, value: string, tag?: string, description?: string }>): Promise<DhcpOption> {
+  async updateOption(id: string, updates: Partial<{ optionNumber: number | string, value: string, tag?: string, description?: string, active?: boolean }>): Promise<DhcpOption> {
     const config = await this.getConfig();
     
     if (!config.dhcpOptions) {
@@ -1018,6 +1116,9 @@ export class DnsmasqService {
     }
     if (updates.tag !== undefined) {
       config.dhcpOptions[optionIndex].tag = updates.tag;
+    }
+    if (updates.active !== undefined) {
+      config.dhcpOptions[optionIndex].active = updates.active;
     }
     
     // Update configuration file
