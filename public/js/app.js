@@ -352,7 +352,7 @@ class DnsmasqGUI {
         }
         
         if (optionFilter) {
-            optionFilter.addEventListener('change', (e) => {
+            optionFilter.addEventListener('input', (e) => {
                 this.currentOptionFilters.option = e.target.value;
                 this.applyOptionFiltersAndRender();
             });
