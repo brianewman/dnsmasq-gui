@@ -64,3 +64,16 @@ echo "🎉 CNAME migration completed successfully!"
 echo ""
 echo "CNAME records are now managed in: $CNAME_CONF"
 echo "Main configuration backed up with timestamp"
+
+# Restart DNSmasq to load the new CNAME configuration
+echo "🔄 Restarting DNSmasq to load new CNAME configuration..."
+if systemctl is-active --quiet dnsmasq; then
+    sudo systemctl restart dnsmasq
+    if [ $? -eq 0 ]; then
+        echo "✅ DNSmasq restarted successfully"
+    else
+        echo "⚠️  DNSmasq restart failed - you may need to restart manually"
+    fi
+else
+    echo "ℹ️  DNSmasq is not running - it will load the new configuration when started"
+fi
