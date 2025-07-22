@@ -30,15 +30,19 @@ dnsmasqRoutes.get('/config', async (req: AuthenticatedRequest, res) => {
 dnsmasqRoutes.put('/config', async (req: AuthenticatedRequest, res) => {
   try {
     const config: DnsmasqConfig = req.body;
+    console.log('Received config update request:', JSON.stringify(config, null, 2));
     await dnsmasqService.updateConfig(config);
     res.json({
       success: true,
       message: 'Configuration updated successfully'
     } as ApiResponse);
   } catch (error) {
+    console.error('Configuration update failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
       success: false,
-      error: 'Failed to update configuration'
+      message: `Failed to update configuration: ${errorMessage}`,
+      error: `Failed to update configuration: ${errorMessage}`
     } as ApiResponse);
   }
 });

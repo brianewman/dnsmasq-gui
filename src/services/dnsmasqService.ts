@@ -60,6 +60,14 @@ export class DnsmasqService {
         config.dhcpOptions = options;
       }
       
+      // Load advanced settings and merge them into the config
+      const advancedSettings = await this.loadAdvancedSettings();
+      Object.assign(config, advancedSettings);
+      
+      // Load cache settings from main config file
+      const cacheSettings = await this.loadCacheSettingsFromMainConfig();
+      Object.assign(config, cacheSettings);
+      
       return config;
     } catch (error) {
       console.error('Failed to read dnsmasq config:', error);
@@ -237,6 +245,144 @@ export class DnsmasqService {
     }
   }
 
+  private async loadAdvancedSettings(): Promise<Partial<DnsmasqConfig>> {
+    try {
+      const advancedPath = config.dnsmasq.advancedConfigFile;
+      
+      if (!await fs.pathExists(advancedPath)) {
+        return {};
+      }
+      
+      const content = await fs.readFile(advancedPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      
+      const advancedSettings: Partial<DnsmasqConfig> = {};
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Parse domain settings
+        if (trimmedLine.startsWith('domain=')) {
+          advancedSettings.domainName = trimmedLine.split('=')[1];
+        }
+        
+        // Parse boolean settings
+        if (trimmedLine === 'expand-hosts') {
+          advancedSettings.expandHosts = true;
+        }
+        if (trimmedLine === 'no-resolv') {
+          advancedSettings.noResolv = true;
+        }
+        if (trimmedLine === 'no-hosts') {
+          advancedSettings.noHosts = true;
+        }
+        if (trimmedLine === 'stop-dns-rebind') {
+          advancedSettings.noDnsRebind = true;
+        }
+        if (trimmedLine === 'rebind-localhost-ok') {
+          advancedSettings.stopDnsRebind = true;
+        }
+        if (trimmedLine === 'dhcp-authoritative') {
+          advancedSettings.dhcpAuthoritative = true;
+        }
+        if (trimmedLine === 'bind-interfaces') {
+          advancedSettings.bindInterfaces = true;
+        }
+        if (trimmedLine === 'log-queries') {
+          advancedSettings.logQueries = true;
+        }
+        if (trimmedLine === 'log-dhcp') {
+          advancedSettings.logDhcp = true;
+        }
+        if (trimmedLine === 'no-daemon') {
+          advancedSettings.noDaemon = true;
+        }
+        
+        // Parse numeric settings - Skip cache settings as they're in main config
+        // if (trimmedLine.startsWith('cache-size=')) {
+        //   advancedSettings.cacheSize = parseInt(trimmedLine.split('=')[1]) || 150;
+        // }
+        // if (trimmedLine.startsWith('neg-ttl=')) {
+        //   advancedSettings.negTtl = parseInt(trimmedLine.split('=')[1]) || 3600;
+        // }
+        // if (trimmedLine.startsWith('local-ttl=')) {
+        //   advancedSettings.localTtl = parseInt(trimmedLine.split('=')[1]) || 0;
+        // }
+        // Note: dhcp-lease-max is not a valid dnsmasq option - lease time is set per dhcp-range
+        
+        // Parse string settings
+        if (trimmedLine.startsWith('log-facility=')) {
+          advancedSettings.logFacility = trimmedLine.split('=')[1];
+        }
+        
+        // Note: dhcp-leasetime is not a valid global dnsmasq option
+        // Lease time is set per dhcp-range, not globally
+        // The dhcpLeasetime field is a UI-only setting for default values
+        
+        // Parse upstream servers
+        if (trimmedLine.startsWith('server=')) {
+          if (!advancedSettings.upstreamServers) {
+            advancedSettings.upstreamServers = [];
+          }
+          advancedSettings.upstreamServers.push(trimmedLine.split('=')[1]);
+        }
+        
+        // Parse interfaces
+        if (trimmedLine.startsWith('interface=')) {
+          if (!advancedSettings.interfaces) {
+            advancedSettings.interfaces = [];
+          }
+          advancedSettings.interfaces.push({
+            name: trimmedLine.split('=')[1],
+            enabled: true
+          });
+        }
+      }
+      
+      console.log(`Loaded advanced settings from ${advancedPath}`);
+      return advancedSettings;
+    } catch (error) {
+      console.error('Failed to load advanced settings:', error);
+      return {};
+    }
+  }
+
+  private async loadCacheSettingsFromMainConfig(): Promise<Partial<DnsmasqConfig>> {
+    try {
+      const mainConfigPath = this.configPath;
+      
+      if (!await fs.pathExists(mainConfigPath)) {
+        return {};
+      }
+      
+      const content = await fs.readFile(mainConfigPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      
+      const cacheSettings: Partial<DnsmasqConfig> = {};
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Parse cache settings from main config
+        if (trimmedLine.startsWith('cache-size=')) {
+          cacheSettings.cacheSize = parseInt(trimmedLine.split('=')[1]) || 150;
+        }
+        if (trimmedLine.startsWith('neg-ttl=')) {
+          cacheSettings.negTtl = parseInt(trimmedLine.split('=')[1]) || 3600;
+        }
+        if (trimmedLine.startsWith('local-ttl=')) {
+          cacheSettings.localTtl = parseInt(trimmedLine.split('=')[1]) || 0;
+        }
+      }
+      
+      console.log(`Loaded cache settings from main config: ${mainConfigPath}`);
+      return cacheSettings;
+    } catch (error) {
+      console.error('Failed to load cache settings from main config:', error);
+      return {};
+    }
+  }
+
   private getMockConfig(): DnsmasqConfig {
     return {
       domainName: 'local.lan',
@@ -282,7 +428,6 @@ export class DnsmasqService {
         }
       ],
       dhcpAuthoritative: true,
-      dhcpLeasetime: '24h',
       dnsRecords: [
         {
           id: 'dns-1',
@@ -304,6 +449,9 @@ export class DnsmasqService {
 
   async updateConfig(newConfig: DnsmasqConfig): Promise<void> {
     try {
+      // Update main advanced settings configuration
+      await this.updateAdvancedSettings(newConfig);
+      
       // Update static leases in a separate file
       await this.updateStaticLeases(newConfig.staticLeases);
       
@@ -314,7 +462,148 @@ export class DnsmasqService {
       
     } catch (error) {
       console.error('Failed to update dnsmasq config:', error);
-      throw new Error('Could not update dnsmasq configuration');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      console.error('Error details:', errorMessage);
+      console.error('Error stack:', errorStack);
+      throw new Error(`Could not update dnsmasq configuration: ${errorMessage}`);
+    }
+  }
+
+  private async updateAdvancedSettings(newConfig: DnsmasqConfig): Promise<void> {
+    try {
+      let configLines: string[] = [];
+      
+      // Start with header comment
+      configLines.push('# DNSmasq advanced configuration managed by dnsmasq-gui');
+      configLines.push('# This section contains general DNS and DHCP settings');
+      configLines.push('');
+      
+      // General Settings
+      if (newConfig.domainName) {
+        configLines.push(`domain=${newConfig.domainName}`);
+      }
+      
+      if (newConfig.expandHosts) {
+        configLines.push('expand-hosts');
+      }
+      
+      // Cache settings - Skip these as they're already in main dnsmasq.conf
+      // to avoid conflicts that prevent dnsmasq from starting
+      // configLines.push(`cache-size=${newConfig.cacheSize || 150}`);
+      // if (newConfig.negTtl !== undefined) {
+      //   configLines.push(`neg-ttl=${newConfig.negTtl}`);
+      // }
+      // if (newConfig.localTtl !== undefined) {
+      //   configLines.push(`local-ttl=${newConfig.localTtl}`);
+      // }
+      
+      // DNS Settings
+      if (newConfig.noResolv) {
+        configLines.push('no-resolv');
+      }
+      
+      if (newConfig.noHosts) {
+        configLines.push('no-hosts');
+      }
+      
+      if (newConfig.noDnsRebind) {
+        configLines.push('stop-dns-rebind');
+      }
+      
+      if (newConfig.stopDnsRebind) {
+        configLines.push('rebind-localhost-ok');
+      }
+      
+      // DHCP Settings
+      if (newConfig.dhcpAuthoritative) {
+        configLines.push('dhcp-authoritative');
+      }
+      
+      // Note: dhcp-leasetime is not a valid dnsmasq global option
+      // Lease time is configured per dhcp-range in the ranges configuration file
+      // The dhcpLeasetime field is used as a default value for new ranges only
+      
+      // Note: dhcp-lease-max is not a valid dnsmasq option
+      // Lease time is configured per dhcp-range in the ranges configuration file
+      
+      // Network Interface Settings
+      if (newConfig.bindInterfaces) {
+        configLines.push('bind-interfaces');
+      }
+      
+      // Add enabled interfaces
+      if (newConfig.interfaces && newConfig.interfaces.length > 0) {
+        for (const iface of newConfig.interfaces) {
+          if (iface.enabled || typeof iface === 'string') {
+            const ifaceName = typeof iface === 'string' ? iface : iface.name;
+            configLines.push(`interface=${ifaceName}`);
+          }
+        }
+      }
+      
+      // Upstream DNS servers
+      if (newConfig.upstreamServers && newConfig.upstreamServers.length > 0) {
+        for (const server of newConfig.upstreamServers) {
+          configLines.push(`server=${server}`);
+        }
+      }
+      
+      // Logging Settings
+      if (newConfig.logQueries) {
+        configLines.push('log-queries');
+      }
+      
+      if (newConfig.logDhcp) {
+        configLines.push('log-dhcp');
+      }
+      
+      if (newConfig.logFacility) {
+        configLines.push(`log-facility=${newConfig.logFacility}`);
+      }
+      
+      // System Settings
+      if (newConfig.noDaemon) {
+        configLines.push('no-daemon');
+      }
+      
+      // Include managed files
+      configLines.push('');
+      configLines.push('# Include managed configuration files');
+      configLines.push(`conf-file=${config.dnsmasq.staticLeasesConfigFile}`);
+      configLines.push(`conf-file=${config.dnsmasq.rangesConfigFile}`);
+      configLines.push(`conf-file=${config.dnsmasq.optionsConfigFile}`);
+      
+      // Write the configuration
+      const configContent = configLines.join('\n') + '\n';
+      
+      // Create advanced settings config file path
+      const advancedConfigPath = config.dnsmasq.advancedConfigFile;
+      
+      // Ensure the directory exists
+      const configDir = require('path').dirname(advancedConfigPath);
+      await fs.ensureDir(configDir);
+      console.log(`Ensured directory exists: ${configDir}`);
+      
+      await fs.writeFile(advancedConfigPath, configContent);
+      console.log(`Updated advanced settings in ${advancedConfigPath}`);
+      
+      // Create a flag to trigger dnsmasq restart
+      try {
+        await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
+      } catch (flagError) {
+        // On Windows, use temp directory
+        const tempDir = process.env.TEMP || process.env.TMP || './tmp';
+        await fs.ensureDir(tempDir);
+        await fs.writeFile(`${tempDir}/dnsmasq-restart-requested`, new Date().toISOString());
+        console.log('Created restart flag in Windows temp directory');
+      }
+      
+    } catch (error) {
+      console.error('Failed to update advanced settings:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error details:', errorMessage);
+      throw error;
     }
   }
 
@@ -322,6 +611,10 @@ export class DnsmasqService {
     try {
       // Write DHCP ranges to a separate file
       const rangesPath = config.dnsmasq.rangesConfigFile;
+      
+      // Ensure the directory exists
+      await fs.ensureDir(require('path').dirname(rangesPath));
+      
       let rangesContent = '# DHCP ranges managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
       
       for (const range of dnsmasqConfig.dhcpRanges || []) {
@@ -346,6 +639,10 @@ export class DnsmasqService {
       
       // Write DHCP options to a separate file
       const optionsPath = config.dnsmasq.optionsConfigFile;
+      
+      // Ensure the directory exists
+      await fs.ensureDir(require('path').dirname(optionsPath));
+      
       let optionsContent = '# DHCP options managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
       
       for (const option of dnsmasqConfig.dhcpOptions || []) {
@@ -373,6 +670,10 @@ export class DnsmasqService {
   private async updateStaticLeases(staticLeases: StaticLease[]): Promise<void> {
     try {
       const staticLeasesPath = config.dnsmasq.staticLeasesConfigFile;
+      
+      // Ensure the directory exists
+      await fs.ensureDir(require('path').dirname(staticLeasesPath));
+      
       let content = '# Static DHCP leases managed by dnsmasq-gui\n# This file is auto-generated, do not edit manually\n\n';
       
       for (const lease of staticLeases) {
@@ -385,7 +686,14 @@ export class DnsmasqService {
       console.log(`Updated ${staticLeases.length} static leases in ${staticLeasesPath}`);
       
       // Create a flag to trigger dnsmasq restart so it picks up the new static leases
-      await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
+      try {
+        await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
+      } catch (flagError) {
+        // On Windows, use temp directory
+        const tempDir = process.env.TEMP || process.env.TMP || './tmp';
+        await fs.ensureDir(tempDir);
+        await fs.writeFile(`${tempDir}/dnsmasq-restart-requested`, new Date().toISOString());
+      }
       
     } catch (error) {
       console.error('Failed to update static leases file:', error);
@@ -661,50 +969,58 @@ export class DnsmasqService {
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      const reloadFlag = '/tmp/dnsmasq-reload-requested';
-      const reloadResult = '/tmp/dnsmasq-reload-result';
+      // First try to get dnsmasq process ID and send SIGHUP signal
+      const { stdout: pidOutput } = await execAsync('pidof dnsmasq');
+      const pid = pidOutput.trim();
       
-      // Clean up any existing result file
-      try {
-        await fs.unlink(reloadResult);
-      } catch (error) {
-        // File doesn't exist, that's fine
-      }
-      
-      // Create reload request flag
-      await fs.writeFile(reloadFlag, new Date().toISOString());
-      console.log('DNSmasq reload requested via flag file');
-      
-      // Wait for the reload handler to process the request (max 20 seconds)
-      const maxWaitTime = 20000; // 20 seconds
-      const startTime = Date.now();
-      
-      while (Date.now() - startTime < maxWaitTime) {
-        try {
-          const result = await fs.readFile(reloadResult, 'utf8');
-          if (result.trim() === 'success') {
-            console.log('DNSmasq service reloaded successfully');
-            return;
-          } else {
-            throw new Error('DNSmasq reload failed on the system');
-          }
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            throw error;
-          }
-        }
+      if (pid) {
+        console.log(`Found dnsmasq process with PID: ${pid}`);
+        const { stdout, stderr } = await execAsync(`kill -HUP ${pid}`);
         
-        // Wait 500ms before checking again
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('DNSmasq service reloaded successfully using SIGHUP signal');
+        if (stdout) {
+          console.log('Reload stdout:', stdout);
+        }
+        if (stderr) {
+          console.log('Reload stderr:', stderr);
+        }
+        return;
       }
+    } catch (error: any) {
+      console.log('Failed to reload dnsmasq using SIGHUP signal:', error.message);
+    }
+
+    // Fallback: try systemctl methods (will likely fail due to NoNewPrivileges)
+    try {
+      // Use systemctl to reload dnsmasq directly
+      const { stdout, stderr } = await execAsync('sudo systemctl reload dnsmasq');
       
-      // If we get here, the reload timed out
-      console.log('Reload request timed out after 20 seconds');
-      throw new Error('Reload request timed out after 20 seconds. The restart handler may not be running or DNSmasq reload is taking longer than expected.');
+      console.log('DNSmasq service reloaded successfully');
+      if (stdout) {
+        console.log('Reload stdout:', stdout);
+      }
+      if (stderr) {
+        console.log('Reload stderr:', stderr);
+      }
       
     } catch (error: any) {
       console.log('Failed to reload dnsmasq service:', error.message);
-      throw new Error(`Failed to reload DNSmasq service: ${error.message}`);
+      
+      // If reload fails, try restart as fallback
+      console.log('Reload failed, attempting restart as fallback...');
+      try {
+        const { stdout, stderr } = await execAsync('sudo systemctl restart dnsmasq');
+        console.log('DNSmasq service restarted successfully as fallback');
+        if (stdout) {
+          console.log('Restart stdout:', stdout);
+        }
+        if (stderr) {
+          console.log('Restart stderr:', stderr);
+        }
+      } catch (restartError: any) {
+        console.log('Both reload and restart failed:', restartError.message);
+        throw new Error(`Failed to reload DNSmasq service: ${error.message}. Restart also failed: ${restartError.message}`);
+      }
     }
   }
 
@@ -812,7 +1128,6 @@ export class DnsmasqService {
       dhcpOptions: [],
       staticLeases: [],
       dhcpAuthoritative: false,
-      dhcpLeasetime: '24h',
       dnsRecords: [],
       upstreamServers: [],
       noDnsRebind: false,

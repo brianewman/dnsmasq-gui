@@ -21,6 +21,12 @@ Environment=NODE_ENV=production
 Environment=PORT=3000
 EnvironmentFile=-/opt/dnsmasq-gui/.env
 
+# DNSmasq configuration file paths
+Environment=DNSMASQ_STATIC_LEASES_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-static-leases.conf
+Environment=DNSMASQ_RANGES_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-ranges.conf
+Environment=DNSMASQ_OPTIONS_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-options.conf
+Environment=DNSMASQ_ADVANCED_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-advanced.conf
+
 # Security settings (relaxed for file access)
 NoNewPrivileges=true
 PrivateTmp=false

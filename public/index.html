@@ -562,17 +562,32 @@
                 <!-- Advanced Settings Section -->
                 <div id="settings-section" class="content-section" style="display: none;">
                     <h2>Advanced Settings</h2>
+                    
+                    <!-- Save Button at the top -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <button class="btn btn-primary" id="save-settings-btn" onclick="app.saveAdvancedSettings()">
+                                <i class="bi bi-floppy me-2"></i>Save Settings
+                            </button>
+                            <button class="btn btn-outline-secondary ms-2" onclick="app.loadAdvancedSettings()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Reload
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="row">
+                        <!-- General Settings -->
                         <div class="col-md-6">
-                            <div class="card">
+                            <div class="card mb-4">
                                 <div class="card-header">
-                                    <h5 class="mb-0">General Settings</h5>
+                                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>General Settings</h5>
                                 </div>
                                 <div class="card-body">
                                     <form id="general-settings-form">
                                         <div class="mb-3">
                                             <label for="domain-name" class="form-label">Domain Name</label>
                                             <input type="text" class="form-control" id="domain-name" placeholder="example.local">
+                                            <div class="form-text">Local domain name for DHCP clients</div>
                                         </div>
                                         <div class="mb-3">
                                             <div class="form-check">
@@ -581,25 +596,210 @@
                                                     Expand hosts
                                                 </label>
                                             </div>
+                                            <div class="form-text">Add domain name to simple names in /etc/hosts</div>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="cache-size" class="form-label">Cache Size</label>
-                                            <input type="number" class="form-control" id="cache-size" value="150">
+                                            <label for="cache-size" class="form-label">DNS Cache Size</label>
+                                            <input type="number" class="form-control" id="cache-size" value="150" min="0" max="10000">
+                                            <div class="form-text">Number of DNS queries to cache (0 = disable caching)</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="neg-ttl" class="form-label">Negative Cache TTL (seconds)</label>
+                                            <input type="number" class="form-control" id="neg-ttl" value="3600" min="0">
+                                            <div class="form-text">How long to cache negative DNS responses</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="local-ttl" class="form-label">Local TTL (seconds)</label>
+                                            <input type="number" class="form-control" id="local-ttl" value="0" min="0">
+                                            <div class="form-text">TTL for replies with local names (0 = no caching)</div>
                                         </div>
                                     </form>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- DNS Settings -->
                         <div class="col-md-6">
-                            <div class="card">
+                            <div class="card mb-4">
                                 <div class="card-header">
-                                    <h5 class="mb-0">Upstream DNS Servers</h5>
+                                    <h5 class="mb-0"><i class="bi bi-globe me-2"></i>DNS Settings</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div id="upstream-servers-container"></div>
-                                    <button class="btn btn-success btn-sm" onclick="addUpstreamServer()">
-                                        <i class="bi bi-plus"></i> Add Server
-                                    </button>
+                                    <form id="dns-settings-form">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="no-resolv">
+                                                <label class="form-check-label" for="no-resolv">
+                                                    Ignore /etc/resolv.conf
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Don't read upstream servers from /etc/resolv.conf</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="no-hosts">
+                                                <label class="form-check-label" for="no-hosts">
+                                                    Ignore /etc/hosts
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Don't read names from /etc/hosts</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="no-dns-rebind">
+                                                <label class="form-check-label" for="no-dns-rebind">
+                                                    Prevent DNS Rebinding
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Reject DNS responses from private IP ranges</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="stop-dns-rebind">
+                                                <label class="form-check-label" for="stop-dns-rebind">
+                                                    Stop DNS Rebinding
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Reject RFC1918 answers to public queries</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Upstream DNS Servers</label>
+                                            <div id="upstream-servers-container"></div>
+                                            <button type="button" class="btn btn-success btn-sm" onclick="app.addUpstreamServer()">
+                                                <i class="bi bi-plus"></i> Add Server
+                                            </button>
+                                            <div class="form-text">External DNS servers to query when not cached locally</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- DHCP Settings -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="bi bi-router me-2"></i>DHCP Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="dhcp-settings-form">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="dhcp-authoritative">
+                                                <label class="form-check-label" for="dhcp-authoritative">
+                                                    DHCP Authoritative
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Be authoritative for this network</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Network Interface Settings -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="bi bi-ethernet me-2"></i>Network Interfaces</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="interface-settings-form">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="bind-interfaces">
+                                                <label class="form-check-label" for="bind-interfaces">
+                                                    Bind to Interfaces
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Bind only to specified interfaces</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Active Interfaces</label>
+                                            <div id="network-interfaces-container"></div>
+                                            <div class="form-text">Select which network interfaces dnsmasq should use</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Logging Settings -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Logging Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="logging-settings-form">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="log-queries">
+                                                <label class="form-check-label" for="log-queries">
+                                                    Log DNS Queries
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Log all DNS queries</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="log-dhcp">
+                                                <label class="form-check-label" for="log-dhcp">
+                                                    Log DHCP Transactions
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Log DHCP lease assignments and renewals</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="log-facility" class="form-label">Log Facility</label>
+                                            <select class="form-select" id="log-facility">
+                                                <option value="">Default</option>
+                                                <option value="daemon">daemon</option>
+                                                <option value="user">user</option>
+                                                <option value="local0">local0</option>
+                                                <option value="local1">local1</option>
+                                                <option value="local2">local2</option>
+                                                <option value="local3">local3</option>
+                                                <option value="local4">local4</option>
+                                                <option value="local5">local5</option>
+                                                <option value="local6">local6</option>
+                                                <option value="local7">local7</option>
+                                            </select>
+                                            <div class="form-text">Syslog facility for dnsmasq messages</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Settings -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>System Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="system-settings-form">
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="no-daemon">
+                                                <label class="form-check-label" for="no-daemon">
+                                                    Run in Foreground
+                                                </label>
+                                            </div>
+                                            <div class="form-text">Don't fork to background (useful for systemd)</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="alert alert-info">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                <strong>Note:</strong> Changes require a dnsmasq service restart to take effect.
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
                         </div>

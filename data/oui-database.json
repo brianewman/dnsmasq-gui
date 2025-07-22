@@ -1,0 +1,684 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-07-21T16:33:05.018Z",
+  "entries": [
+    {
+      "oui": "000393",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.017Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000502",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000A27",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001451",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0017F2",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001B63",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001E52",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001EC2",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001F5B",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001FF3",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "24A43C",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "28CFE9",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "3C0754",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "40A3CC",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "44D884",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "4C8D79",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "50ED3C",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "60F81D",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "64200C",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "68967A",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "70CD60",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "78CA39",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "7C6D62",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "88C663",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "8CF710",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "9060F1",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "98FE94",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "A4C361",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "B8634D",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "BC52B7",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "CC25EF",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "E0B52D",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F0B479",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F40F24",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F4F15A",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F86214",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "FC253F",
+      "manufacturer": "Apple, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000E35",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0012FB",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0015B9",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001632",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0016B8",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001956",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001C62",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001E7D",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0021D1",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0026C6",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "002B05",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "2C0E3D",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "44F459",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "4C3C16",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "5C0A5B",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "68A86D",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "70F927",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "7C6193",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "8030DC",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "8C77F0",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "AC87A3",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "CC07AB",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "D0176A",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "E06267",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F0728C",
+      "manufacturer": "Samsung Electronics",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "1C666D",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "2C8A72",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "50CC2E",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "6466B3",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "68C50C",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "78E103",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "7C2ECD",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "80B2EC",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "9C5CF9",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "A0E4CB",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "CC3A61",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "DA7C02",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "E4F04C",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F4F5DB",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "F82C48",
+      "manufacturer": "Google, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "00026F",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0002B3",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000347",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000423",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0007E9",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001302",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001517",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001731",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001B21",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001C23",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001E64",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "00A0C9",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "002618",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0026C7",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "18E2C2",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "1C3E84",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "34E6D7",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "3C970E",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "8086F2",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "8C16E5",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "E4A7A0",
+      "manufacturer": "Intel Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "005056",
+      "manufacturer": "VMware, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000569",
+      "manufacturer": "VMware, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "00155D",
+      "manufacturer": "VMware, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001C14",
+      "manufacturer": "VMware, Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "00056B",
+      "manufacturer": "D-Link Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000FB5",
+      "manufacturer": "NETGEAR",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "0022B0",
+      "manufacturer": "TP-Link Technologies",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "B827EB",
+      "manufacturer": "Raspberry Pi Foundation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "DC63C2",
+      "manufacturer": "Raspberry Pi Foundation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "E45F01",
+      "manufacturer": "Raspberry Pi Foundation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "20C9D0",
+      "manufacturer": "Amazon Technologies Inc.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "1C3971",
+      "manufacturer": "Realtek Semiconductor",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "000D56",
+      "manufacturer": "Broadcom Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "002147",
+      "manufacturer": "Nintendo Co., Ltd.",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    },
+    {
+      "oui": "001125",
+      "manufacturer": "Sony Corporation",
+      "dateAdded": "2025-07-21T16:33:05.018Z",
+      "source": "builtin"
+    }
+  ]
+}

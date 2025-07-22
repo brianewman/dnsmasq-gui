@@ -516,7 +516,8 @@ class DnsmasqGUI {
                 this.loadNetworkConfig();
                 break;
             case 'settings':
-                this.loadAdvancedSettings();
+                // Add a slight delay to ensure the section is fully rendered
+                setTimeout(() => this.loadAdvancedSettings(), 100);
                 break;
         }
     }
@@ -1790,8 +1791,264 @@ class DnsmasqGUI {
         console.log('Loading network configuration...');
     }
 
-    loadAdvancedSettings() {
-        console.log('Loading advanced settings...');
+    // Load advanced settings
+    async loadAdvancedSettings() {
+        try {
+            console.log('loadAdvancedSettings() called');
+            
+            // Wait a moment to ensure the settings section is visible
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            console.log('Making API request to /api/dnsmasq/config');
+            const response = await fetch('/api/dnsmasq/config', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            console.log('Response status:', response.status);
+            if (!response.ok) throw new Error(`Failed to load configuration: ${response.status}`);
+            
+            const result = await response.json();
+            console.log('Received result:', result);
+            
+            if (!result.success) {
+                throw new Error('API returned error: ' + (result.error || 'Unknown error'));
+            }
+            
+            const config = result.data;
+            console.log('Config data:', config);
+            
+            // General Settings
+            console.log('Setting form values...');
+            const domainElement = document.getElementById('domain-name');
+            if (domainElement) {
+                domainElement.value = config.domainName || '';
+                console.log('Set domain-name to:', config.domainName || '');
+            } else {
+                console.error('Could not find domain-name element');
+            }
+            
+            const expandElement = document.getElementById('expand-hosts');
+            if (expandElement) {
+                expandElement.checked = config.expandHosts || false;
+                console.log('Set expand-hosts to:', config.expandHosts || false);
+            } else {
+                console.error('Could not find expand-hosts element');
+            }
+            
+            document.getElementById('cache-size').value = config.cacheSize || 150;
+            document.getElementById('neg-ttl').value = config.negTtl || 3600;
+            document.getElementById('local-ttl').value = config.localTtl || 0;
+            
+            // DNS Settings
+            document.getElementById('no-resolv').checked = config.noResolv || false;
+            document.getElementById('no-hosts').checked = config.noHosts || false;
+            document.getElementById('no-dns-rebind').checked = config.noDnsRebind || false;
+            document.getElementById('stop-dns-rebind').checked = config.stopDnsRebind || false;
+            document.getElementById('log-facility').value = config.logFacility || '';
+            
+            // DHCP Settings
+            document.getElementById('dhcp-authoritative').checked = config.dhcpAuthoritative || false;
+            
+            // Network Interface Settings
+            document.getElementById('bind-interfaces').checked = config.bindInterfaces || false;
+            
+            // Logging Settings
+            document.getElementById('log-queries').checked = config.logQueries || false;
+            document.getElementById('log-dhcp').checked = config.logDhcp || false;
+            
+            // System Settings
+            document.getElementById('no-daemon').checked = config.noDaemon || false;
+            
+            // Load upstream servers
+            this.loadUpstreamServers(config.upstreamServers || []);
+            
+            // Load network interfaces
+            this.loadNetworkInterfaces(config.interfaces || []);
+            
+        } catch (error) {
+            console.error('Error loading advanced settings:', error);
+            this.showAlert('Error loading advanced settings: ' + error.message, 'danger');
+        }
+    }
+
+    // Save advanced settings
+    async saveAdvancedSettings() {
+        const saveBtn = document.getElementById('save-settings-btn');
+        const originalText = saveBtn.innerHTML;
+        
+        try {
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
+            saveBtn.disabled = true;
+
+            // First, get the current configuration to preserve existing data
+            const currentConfigResponse = await fetch('/api/dnsmasq/config', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+            
+            if (!currentConfigResponse.ok) {
+                throw new Error('Failed to load current configuration');
+            }
+            
+            const currentConfigResult = await currentConfigResponse.json();
+            
+            if (!currentConfigResult.success) {
+                throw new Error('Failed to load current configuration: ' + (currentConfigResult.error || 'Unknown error'));
+            }
+            
+            const currentConfig = currentConfigResult.data;
+
+            // Collect all form data and merge with existing configuration
+            const config = {
+                // Preserve existing arrays that aren't managed in Advanced Settings
+                staticLeases: currentConfig.staticLeases || [],
+                dhcpRanges: currentConfig.dhcpRanges || [],
+                dhcpOptions: currentConfig.dhcpOptions || [],
+                dnsRecords: currentConfig.dnsRecords || [],
+                
+                // General Settings
+                domainName: document.getElementById('domain-name').value.trim(),
+                expandHosts: document.getElementById('expand-hosts').checked,
+                cacheSize: parseInt(document.getElementById('cache-size').value) || 150,
+                negTtl: parseInt(document.getElementById('neg-ttl').value) || 3600,
+                localTtl: parseInt(document.getElementById('local-ttl').value) || 0,
+                
+                // DNS Settings
+                noResolv: document.getElementById('no-resolv').checked,
+                noHosts: document.getElementById('no-hosts').checked,
+                noDnsRebind: document.getElementById('no-dns-rebind').checked,
+                stopDnsRebind: document.getElementById('stop-dns-rebind').checked,
+                logFacility: document.getElementById('log-facility').value,
+                
+                // DHCP Settings
+                dhcpAuthoritative: document.getElementById('dhcp-authoritative').checked,
+                
+                // Network Interface Settings
+                bindInterfaces: document.getElementById('bind-interfaces').checked,
+                
+                // Logging Settings
+                logQueries: document.getElementById('log-queries').checked,
+                logDhcp: document.getElementById('log-dhcp').checked,
+                
+                // System Settings
+                noDaemon: document.getElementById('no-daemon').checked,
+                
+                // Collect upstream servers
+                upstreamServers: this.collectUpstreamServers(),
+                
+                // Collect network interfaces
+                interfaces: this.collectNetworkInterfaces()
+            };
+
+            console.log('Saving configuration:', config);
+
+            const response = await fetch('/api/dnsmasq/config', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify(config)
+            });
+
+            console.log('Response status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.log('Error response body:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('Configuration saved:', result);
+            
+            this.showAlert('success', 'Configuration saved successfully!');
+            this.showBanner('Configuration updated. Reload the DNSmasq service to apply changes.');
+            
+        } catch (error) {
+            console.error('Error saving advanced settings:', error);
+            this.showAlert('danger', 'Error saving configuration: ' + error.message);
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+
+    // Load upstream servers into the UI
+    loadUpstreamServers(servers) {
+        const container = document.getElementById('upstream-servers-container');
+        container.innerHTML = '';
+        
+        if (servers.length === 0) {
+            servers = ['8.8.8.8', '8.8.4.4']; // Default Google DNS
+        }
+        
+        servers.forEach((server, index) => {
+            this.addUpstreamServerRow(server, index);
+        });
+    }
+
+    // Add upstream server row
+    addUpstreamServerRow(server = '', index = null) {
+        const container = document.getElementById('upstream-servers-container');
+        const actualIndex = index !== null ? index : container.children.length;
+        
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2';
+        div.innerHTML = `
+            <input type="text" class="form-control upstream-server" placeholder="8.8.8.8" value="${server}">
+            <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        
+        container.appendChild(div);
+    }
+
+    // Add new upstream server
+    addUpstreamServer() {
+        this.addUpstreamServerRow();
+    }
+
+    // Collect upstream servers from form
+    collectUpstreamServers() {
+        const inputs = document.querySelectorAll('.upstream-server');
+        return Array.from(inputs)
+            .map(input => input.value.trim())
+            .filter(value => value !== '');
+    }
+
+    // Load network interfaces
+    loadNetworkInterfaces(interfaces) {
+        const container = document.getElementById('network-interfaces-container');
+        container.innerHTML = '';
+        
+        // Get available network interfaces (this would normally come from the server)
+        const availableInterfaces = ['eth0', 'wlan0', 'br0', 'enp0s3', 'wlp2s0'];
+        
+        availableInterfaces.forEach(iface => {
+            const div = document.createElement('div');
+            div.className = 'form-check mb-2';
+            div.innerHTML = `
+                <input class="form-check-input network-interface" type="checkbox" 
+                       value="${iface}" id="interface-${iface}" 
+                       ${interfaces.includes(iface) ? 'checked' : ''}>
+                <label class="form-check-label" for="interface-${iface}">
+                    ${iface}
+                </label>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // Collect selected network interfaces
+    collectNetworkInterfaces() {
+        const checkboxes = document.querySelectorAll('.network-interface:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
     }
 
     // DHCP Reservations Management

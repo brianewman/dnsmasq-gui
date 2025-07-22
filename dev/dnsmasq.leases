@@ -1,0 +1,6 @@
+# Development DHCP leases file
+# Format: expiry-time mac-address ip-address hostname client-id
+
+# Example entries for testing:
+1736615000 00:11:22:33:44:55 192.168.1.100 test-device1 *
+1736615000 00:aa:bb:cc:dd:ee 192.168.1.101 test-device2 *

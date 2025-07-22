@@ -62,7 +62,6 @@ export interface DnsmasqConfig {
   dhcpOptions: DhcpOption[];
   staticLeases: StaticLease[];
   dhcpAuthoritative: boolean;
-  dhcpLeasetime: string;
   
   // DNS settings
   dnsRecords: DnsRecord[];
