@@ -27,6 +27,11 @@ class DnsmasqGUI {
             direction: 'asc'
         };
         
+        this.currentDnsSort = {
+            column: null,
+            direction: 'asc'
+        };
+        
         // Filtering state
         this.currentFilters = {
             network: '',
@@ -54,12 +59,18 @@ class DnsmasqGUI {
             search: ''
         };
         
+        this.currentDnsFilters = {
+            type: '',
+            search: ''
+        };
+        
         this.currentLeases = [];
         this.currentStaticLeases = [];
         this.currentReservations = [];
         this.currentDhcpRanges = [];
         this.currentOptions = [];
         this.allOptions = []; // Backup of all options for filtering
+        this.currentDnsRecords = [];
         
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
@@ -263,6 +274,8 @@ class DnsmasqGUI {
                     this.sortOptions(column);
                 } else if (table && table.id === 'reservations-table') {
                     this.sortReservations(column);
+                } else if (table && table.id === 'dns-records-table') {
+                    this.sortDnsRecords(column);
                 } else {
                     this.sortLeases(column);
                 }
@@ -1790,7 +1803,9 @@ class DnsmasqGUI {
             console.log('DNS config response:', response);
             
             if (response.success && response.data.dnsRecords) {
-                this.displayDnsRecords(response.data.dnsRecords);
+                // Store records and apply sorting/filtering
+                this.currentDnsRecords = response.data.dnsRecords;
+                this.applyDnsFiltersAndRender();
             } else {
                 console.error('Failed to load DNS records:', response.error);
                 document.getElementById('dns-records-container').innerHTML = 
@@ -1811,40 +1826,57 @@ class DnsmasqGUI {
             return;
         }
 
+        // Store records for sorting and filtering
+        this.currentDnsRecords = records;
+
         let html = `
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
+                <table class="table table-striped table-hover" id="dns-records-table">
+                    <thead class="table-dark">
                         <tr>
-                            <th>Type</th>
-                            <th>Hostname</th>
-                            <th>IP Address</th>
-                            <th>Aliases (CNAME)</th>
-                            <th>MAC Address</th>
-                            <th>Actions</th>
+                            <th class="sortable" data-sort="type" style="cursor: pointer;">
+                                <i class="bi bi-tag me-1"></i>Type <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="name" style="cursor: pointer;">
+                                <i class="bi bi-pc-display me-1"></i>Hostname <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="value" style="cursor: pointer;">
+                                <i class="bi bi-globe me-1"></i>IP Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="aliases" style="cursor: pointer;">
+                                <i class="bi bi-link-45deg me-1"></i>Aliases (CNAME) <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="macAddress" style="cursor: pointer;">
+                                <i class="bi bi-hdd-network me-1"></i>MAC Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                            </th>
+                            <th width="120"><i class="bi bi-gear me-1"></i>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>`;
+                    <tbody id="dns-records-table-body">`;
 
         records.forEach(record => {
             const aliases = record.aliases && record.aliases.length > 0 ? 
-                record.aliases.join(', ') : '';
-            const macAddress = record.macAddress || '';
+                record.aliases.join(', ') : '<span class="text-muted">-</span>';
+            const macAddress = record.macAddress || '<span class="text-muted">-</span>';
             
             html += `
                 <tr>
                     <td><span class="badge bg-primary">${record.type}</span></td>
-                    <td>${record.name}</td>
-                    <td>${record.value}</td>
+                    <td><strong>${record.name}</strong></td>
+                    <td><code class="text-primary">${record.value}</code></td>
                     <td>${aliases}</td>
-                    <td class="text-muted">${macAddress}</td>
+                    <td class="text-muted small">${macAddress}</td>
                     <td>
-                        <button class="btn btn-outline-secondary btn-sm me-1" onclick="editDnsRecord('${record.id}')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deleteDnsRecord('${record.id}')">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editDnsRecord('${record.id}')"
+                                    title="Edit DNS record">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteDnsRecord('${record.id}')"
+                                    title="Delete DNS record">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
         });
@@ -1855,6 +1887,10 @@ class DnsmasqGUI {
             </div>`;
 
         container.innerHTML = html;
+        
+        // Reinitialize sorting listeners for the new table
+        this.initSortingListeners();
+        
         console.log(`Displayed ${records.length} DNS records`);
     }
 
@@ -2857,6 +2893,181 @@ class DnsmasqGUI {
                 header.classList.add(`sort-${this.currentOptionSort.direction}`);
             }
         });
+    }
+
+    // DNS Records sorting functions
+    sortDnsRecords(column) {
+        // Cycle through three states: asc -> desc -> unsorted (null)
+        if (this.currentDnsSort.column === column) {
+            if (this.currentDnsSort.direction === 'asc') {
+                this.currentDnsSort.direction = 'desc';
+            } else if (this.currentDnsSort.direction === 'desc') {
+                // Third click: clear sorting (unsorted state)
+                this.currentDnsSort.column = null;
+                this.currentDnsSort.direction = 'asc'; // Reset direction for next time
+            } else {
+                // This shouldn't happen, but handle it by going to ascending
+                this.currentDnsSort.column = column;
+                this.currentDnsSort.direction = 'asc';
+            }
+        } else {
+            // New column OR clicking on unsorted column: start with ascending
+            this.currentDnsSort.column = column;
+            this.currentDnsSort.direction = 'asc';
+        }
+        
+        this.applyDnsFiltersAndRender();
+    }
+
+    applyDnsFiltersAndRender() {
+        if (!this.currentDnsRecords || this.currentDnsRecords.length === 0) {
+            this.displayDnsRecords([]);
+            return;
+        }
+        
+        // Apply filters (when implemented later)
+        let filteredRecords = this.filterDnsRecords(this.currentDnsRecords);
+        
+        // Apply sorting if any
+        if (this.currentDnsSort.column) {
+            filteredRecords = this.sortFilteredDnsRecords(filteredRecords);
+        }
+        
+        // Render filtered and sorted results
+        this.renderDnsRecords(filteredRecords);
+        this.updateDnsSortHeaders();
+    }
+
+    filterDnsRecords(records) {
+        // For now, return all records (filtering can be added later)
+        return records;
+    }
+
+    sortFilteredDnsRecords(records) {
+        return [...records].sort((a, b) => {
+            let aVal, bVal;
+            
+            switch (this.currentDnsSort.column) {
+                case 'type':
+                    aVal = (a.type || '').toLowerCase();
+                    bVal = (b.type || '').toLowerCase();
+                    break;
+                    
+                case 'name':
+                    aVal = (a.name || '').toLowerCase();
+                    bVal = (b.name || '').toLowerCase();
+                    break;
+                    
+                case 'value':
+                    // Sort IP addresses numerically if they are valid IPs
+                    if (this.isValidIP(a.value) && this.isValidIP(b.value)) {
+                        aVal = this.ipToNumber(a.value);
+                        bVal = this.ipToNumber(b.value);
+                        return this.currentDnsSort.direction === 'asc' ? 
+                            aVal - bVal : bVal - aVal;
+                    } else {
+                        aVal = (a.value || '').toLowerCase();
+                        bVal = (b.value || '').toLowerCase();
+                    }
+                    break;
+                    
+                case 'aliases':
+                    // Sort by first alias if available
+                    aVal = (a.aliases && a.aliases.length > 0 ? a.aliases[0] : '').toLowerCase();
+                    bVal = (b.aliases && b.aliases.length > 0 ? b.aliases[0] : '').toLowerCase();
+                    break;
+                    
+                case 'macAddress':
+                    aVal = (a.macAddress || '').toLowerCase();
+                    bVal = (b.macAddress || '').toLowerCase();
+                    break;
+                    
+                default:
+                    return 0;
+            }
+            
+            // Handle numeric sorting
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return this.currentDnsSort.direction === 'asc' ? 
+                    aVal - bVal : bVal - aVal;
+            }
+            
+            // Handle string sorting
+            return this.currentDnsSort.direction === 'asc' ? 
+                aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+    }
+
+    renderDnsRecords(records) {
+        const tableBody = document.getElementById('dns-records-table-body');
+        if (!tableBody) {
+            // Table doesn't exist yet, fall back to displayDnsRecords
+            this.displayDnsRecords(records);
+            return;
+        }
+
+        if (records.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="bi bi-info-circle me-2"></i>No DNS records found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = records.map(record => {
+            const aliases = record.aliases && record.aliases.length > 0 ? 
+                record.aliases.join(', ') : '<span class="text-muted">-</span>';
+            const macAddress = record.macAddress || '<span class="text-muted">-</span>';
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-primary">${record.type}</span></td>
+                    <td><strong>${record.name}</strong></td>
+                    <td><code class="text-primary">${record.value}</code></td>
+                    <td>${aliases}</td>
+                    <td class="text-muted small">${macAddress}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editDnsRecord('${record.id}')"
+                                    title="Edit DNS record">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteDnsRecord('${record.id}')"
+                                    title="Delete DNS record">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    updateDnsSortHeaders() {
+        const table = document.getElementById('dns-records-table');
+        if (!table) return;
+        
+        const headers = table.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            const column = header.getAttribute('data-sort');
+            
+            // Remove existing sort classes
+            header.classList.remove('sort-asc', 'sort-desc');
+            
+            // Add appropriate sort class if this is the active sort column
+            if (column === this.currentDnsSort.column) {
+                header.classList.add(`sort-${this.currentDnsSort.direction}`);
+            }
+        });
+    }
+
+    // Helper function to check if a string is a valid IP address
+    isValidIP(ip) {
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        return ipRegex.test(ip);
     }
 
     showAddReservationModal() {
