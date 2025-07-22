@@ -1048,7 +1048,13 @@ export class DnsmasqService {
   async restart(): Promise<void> {
     console.log('Starting DNSmasq restart operation...');
     try {
-      // Use systemctl directly to restart dnsmasq
+      // Check if we're in development mode (Windows)
+      if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
+        console.log('Development mode: Simulating DNSmasq restart');
+        return;
+      }
+      
+      // Use systemctl directly to restart dnsmasq on Linux
       const { stdout, stderr } = await execAsync('sudo systemctl restart dnsmasq');
       
       console.log('DNSmasq service restarted successfully');
@@ -1068,7 +1074,13 @@ export class DnsmasqService {
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      // Use systemctl directly to reload dnsmasq
+      // Check if we're in development mode (Windows)
+      if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
+        console.log('Development mode: Simulating DNSmasq reload');
+        return;
+      }
+      
+      // Use systemctl directly to reload dnsmasq on Linux
       const { stdout, stderr } = await execAsync('sudo systemctl reload dnsmasq');
       
       console.log('DNSmasq service reloaded successfully');
