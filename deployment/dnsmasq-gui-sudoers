@@ -1,7 +1,6 @@
 # Allow dnsmasq-gui service user to manage dnsmasq service
-# This file should be placed in /etc/sudoers.d/dnsmasq-gui
-
 dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart dnsmasq
 dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload dnsmasq
 dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/bin/systemctl status dnsmasq
-dnsmasq-gui ALL=(ALL) NOPASSWD: /bin/kill -HUP *
+dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/local/bin/dnsmasq-restart
+dnsmasq-gui ALL=(ALL) NOPASSWD: /usr/local/bin/dnsmasq-reload
