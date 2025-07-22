@@ -1838,11 +1838,8 @@ class DnsmasqGUI {
                 // Store the original records for filtering (never overwrite this)
                 this.currentDnsRecords = response.data.dnsRecords;
                 
-                // Create the initial table display
-                this.displayDnsRecords(response.data.dnsRecords);
-                
-                // Update filter counts
-                this.updateDnsFilterCounts(response.data.dnsRecords);
+                // Apply current filters and render the table
+                this.applyDnsFiltersAndRender();
             } else {
                 console.error('Failed to load DNS records:', response.error);
                 document.getElementById('dns-records-container').innerHTML = 
