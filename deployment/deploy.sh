@@ -15,16 +15,15 @@ SERVICE_NAME="dnsmasq-gui"
 echo "📦 Building application..."
 npm run build
 
-# Check if we should create a full deployment package or just update files
+# Check if this is an update-only deployment
 if [ "$1" == "--update-only" ]; then
     echo "🔄 Performing update-only deployment..."
     
-    # Copy built files to temporary location on Pi
-    echo "📁 Copying dist files..."
-    scp -r dist/* ${PI_USER}@${PI_HOST}:/tmp/dnsmasq-gui-dist-update/
+    # Create a minimal package for update
+    tar -czf dnsmasq-gui-update.tar.gz dist/ public/ package.json
     
-    echo "📁 Copying public files..."
-    scp -r public/* ${PI_USER}@${PI_HOST}:/tmp/dnsmasq-gui-public-update/
+    # Copy to Raspberry Pi
+    scp dnsmasq-gui-update.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
     
     # Deploy the updates
     ssh ${PI_USER}@${PI_HOST} << 'EOF'
@@ -33,31 +32,45 @@ if [ "$1" == "--update-only" ]; then
         # Stop service
         sudo systemctl stop dnsmasq-gui
         
-        # Update files
-        sudo rsync -av /tmp/dnsmasq-gui-dist-update/ /opt/dnsmasq-gui/dist/
-        sudo rsync -av /tmp/dnsmasq-gui-public-update/ /opt/dnsmasq-gui/public/
+        # Backup current dist directory
+        if [ -d "/opt/dnsmasq-gui/dist" ]; then
+            sudo mv /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/dist.backup.$(date +%Y%m%d_%H%M%S)
+        fi
         
-        # Fix permissions
-        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/dist/
-        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/public/
+        # Extract update files
+        cd /opt/dnsmasq-gui
+        sudo tar -xzf /tmp/dnsmasq-gui-update.tar.gz -C /opt/dnsmasq-gui --strip-components=0
+        
+        # Update npm dependencies if package.json changed
+        sudo npm ci --production --silent
+        
+        # Ensure proper ownership
+        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/public
         
         # Start service
         sudo systemctl start dnsmasq-gui
         
         # Cleanup
-        rm -rf /tmp/dnsmasq-gui-dist-update /tmp/dnsmasq-gui-public-update
+        rm -f /tmp/dnsmasq-gui-update.tar.gz
         
         # Check status
         sleep 3
         if sudo systemctl is-active --quiet dnsmasq-gui; then
             echo "✅ Service restarted successfully"
+            echo "📊 Service Status:"
+            sudo systemctl status dnsmasq-gui --no-pager -l
         else
             echo "❌ Service failed to restart"
+            echo "📋 Error Logs:"
             sudo journalctl -u dnsmasq-gui -n 10 --no-pager
         fi
 EOF
     
+    # Cleanup local file
+    rm dnsmasq-gui-update.tar.gz
+    
     echo "✅ Update deployment complete!"
+    echo "📍 Service is running at: http://${PI_HOST}:3000"
     exit 0
 fi
 
@@ -193,38 +206,6 @@ RELOAD_SCRIPT
 
 EOF
 
-# Handle different deployment modes
-if [[ "$1" == "--update-only" ]]; then
-    echo "🔄 Performing update-only deployment..."
-    ssh ${PI_USER}@${PI_HOST} << 'EOF'
-        # Update deployment mode - only replace application files
-        echo "🔄 Updating application files..."
-        
-        # Stop service
-        sudo systemctl stop dnsmasq-gui || true
-        
-        # Backup current dist directory
-        if [ -d "/opt/dnsmasq-gui/dist" ]; then
-            sudo mv /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/dist.backup.$(date +%Y%m%d_%H%M%S)
-        fi
-        
-        # Extract only the application files (dist and public directories)
-        cd /opt/dnsmasq-gui
-        sudo tar -xzf /tmp/dnsmasq-gui.tar.gz -C /opt/dnsmasq-gui --strip-components=0 dist/ public/ package.json
-        
-        # Update npm dependencies if package.json changed
-        sudo npm ci --production --silent
-        
-        # Ensure proper ownership
-        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/public
-        
-        echo "✅ Application files updated"
-EOF
-else
-    echo "🏗️  Performing full deployment..."
-    # The full deployment logic above already ran
-fi
-
 # Start the service
 echo "🚀 Starting service..."
 ssh ${PI_USER}@${PI_HOST} << 'EOF'
@@ -255,29 +236,19 @@ ssh ${PI_USER}@${PI_HOST} << 'EOF'
     fi
 EOF
 
-EOF
-
 # Cleanup
 rm dnsmasq-gui.tar.gz
 
 # Final status check and completion message
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "🎉 Deployment completed successfully!"
-    echo "📍 Service is running at: http://${PI_HOST}:3000"
-    echo ""
-    echo "💡 Useful commands:"
-    echo "   View logs: ssh ${PI_USER}@${PI_HOST} 'sudo journalctl -u dnsmasq-gui -f'"
-    echo "   Restart service: ssh ${PI_USER}@${PI_HOST} 'sudo systemctl restart dnsmasq-gui'"
-    echo "   Update only: $0 --update-only"
-    echo ""
-    echo "🔐 Default login: admin/admin (change this in the web interface!)"
-    echo ""
-    if [[ "$1" != "--update-only" ]]; then
-        echo "⚙️  Don't forget to configure your environment in /opt/dnsmasq-gui/.env if needed"
-    fi
-else
-    echo ""
-    echo "❌ Deployment failed! Check the logs above for details."
-    exit 1
-fi
+echo ""
+echo "🎉 Deployment completed successfully!"
+echo "📍 Service is running at: http://${PI_HOST}:3000"
+echo ""
+echo "💡 Useful commands:"
+echo "   View logs: ssh ${PI_USER}@${PI_HOST} 'sudo journalctl -u dnsmasq-gui -f'"
+echo "   Restart service: ssh ${PI_USER}@${PI_HOST} 'sudo systemctl restart dnsmasq-gui'"
+echo "   Update only: $0 --update-only"
+echo ""
+echo "🔐 Default login: admin/admin (change this in the web interface!)"
+echo ""
+echo "⚙️  Don't forget to configure your environment in /opt/dnsmasq-gui/.env if needed"
