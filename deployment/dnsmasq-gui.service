@@ -24,7 +24,7 @@ EnvironmentFile=-/opt/dnsmasq-gui/.env
 # DNSmasq configuration file paths
 Environment=DNSMASQ_CONFIG_PATH=/etc/dnsmasq.conf
 Environment=DNSMASQ_HOSTS_FILE=/etc/dnsmasq.hosts
-Environment=DNSMASQ_LEASES_PATH=/var/lib/dhcp/dhcpd.leases
+Environment=DNSMASQ_LEASES_PATH=/var/lib/misc/dnsmasq.leases
 Environment=DNSMASQ_STATIC_LEASES_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-static-leases.conf
 Environment=DNSMASQ_RANGES_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-ranges.conf
 Environment=DNSMASQ_OPTIONS_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-options.conf
@@ -35,7 +35,7 @@ NoNewPrivileges=true
 PrivateTmp=false
 ProtectSystem=false
 ProtectHome=false
-ReadWritePaths=/etc/dnsmasq.conf /etc/dnsmasq.hosts /etc/dnsmasq.d /var/lib/dhcp /var/log
+ReadWritePaths=/etc/dnsmasq.conf /etc/dnsmasq.hosts /etc/dnsmasq.d /var/lib/misc /var/lib/dhcp /var/log
 
 [Install]
 WantedBy=multi-user.target

@@ -5,7 +5,7 @@ REM Usage: deploy-to-pi.bat [pi-hostname-or-ip] [ssh-user]
 setlocal
 
 set PI_HOST=%1
-if "%PI_HOST%"=="" set PI_HOST=raspberrypi.local
+if "%PI_HOST%"=="" set PI_HOST=192.168.10.3
 
 set SSH_USER=%2
 if "%SSH_USER%"=="" set SSH_USER=pi
@@ -15,17 +15,21 @@ set SERVICE_NAME=dnsmasq-gui
 
 echo 🚀 Deploying dnsmasq-gui to %SSH_USER%@%PI_HOST%
 
+echo 🏗️ Building application locally...
+npm run build
+
 echo 📦 Stopping existing service (if running)...
 ssh %SSH_USER%@%PI_HOST% "sudo systemctl stop %SERVICE_NAME% 2>/dev/null || true"
 
-echo 📥 Pulling latest code...
-ssh %SSH_USER%@%PI_HOST% "cd %APP_DIR% && sudo git pull origin main"
+echo � Creating app directory on Pi...
+ssh %SSH_USER%@%PI_HOST% "sudo mkdir -p %APP_DIR%"
+
+echo 📤 Copying application files to Pi...
+scp -r dist package.json %SSH_USER%@%PI_HOST%:%APP_DIR%/
+scp -r deployment %SSH_USER%@%PI_HOST%:%APP_DIR%/
 
 echo 🔧 Installing dependencies...
 ssh %SSH_USER%@%PI_HOST% "cd %APP_DIR% && sudo npm ci --only=production"
-
-echo 🏗️ Building application...
-ssh %SSH_USER%@%PI_HOST% "cd %APP_DIR% && sudo npm run build"
 
 echo 👤 Setting up user and permissions...
 ssh %SSH_USER%@%PI_HOST% "sudo useradd -r -s /bin/false dnsmasq-gui 2>/dev/null || true"
