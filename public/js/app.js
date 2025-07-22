@@ -1877,7 +1877,7 @@ class DnsmasqGUI {
                                 <i class="bi bi-globe me-1"></i>IP Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
                             </th>
                             <th class="sortable" data-sort="aliases" style="cursor: pointer;">
-                                <i class="bi bi-link-45deg me-1"></i>Aliases (CNAME) <i class="bi bi-chevron-expand text-muted sort-icon"></i>
+                                <i class="bi bi-link-45deg me-1"></i>Aliases (<span class="badge bg-primary">CNAME</span>) <i class="bi bi-chevron-expand text-muted sort-icon"></i>
                             </th>
                             <th class="sortable" data-sort="macAddress" style="cursor: pointer;">
                                 <i class="bi bi-hdd-network me-1"></i>MAC Address <i class="bi bi-chevron-expand text-muted sort-icon"></i>
