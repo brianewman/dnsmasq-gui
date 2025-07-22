@@ -487,7 +487,7 @@ class DnsmasqGUI {
 
     initModalEventListeners() {
         // Handle modal accessibility - prevent aria-hidden focus issues
-        const modals = ['reservationModal', 'deleteReservationModal', 'loginModal', 'rangeModal', 'deleteRangeModal', 'optionModal', 'deleteOptionModal'];
+        const modals = ['reservationModal', 'deleteReservationModal', 'loginModal', 'rangeModal', 'deleteRangeModal', 'optionModal', 'deleteOptionModal', 'dnsRecordModal', 'deleteDnsRecordModal'];
         
         modals.forEach(modalId => {
             const modalElement = document.getElementById(modalId);
@@ -3168,6 +3168,175 @@ class DnsmasqGUI {
         });
     }
 
+    // DNS Record Management Methods
+    showAddDnsRecordModal() {
+        // Clear form
+        const form = document.getElementById('dns-record-form');
+        form.reset();
+        document.getElementById('dns-record-id').value = '';
+        document.getElementById('dns-record-modal-title').textContent = 'Add DNS Record';
+        document.getElementById('dns-record-error').style.display = 'none';
+        
+        // Reset button text
+        document.getElementById('save-dns-record-btn').innerHTML = '<i class="bi bi-save"></i> Add DNS Record';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('dnsRecordModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-dns-record-btn').onclick = () => this.saveDnsRecord();
+    }
+
+    editDnsRecord(recordId) {
+        // Find the DNS record
+        const record = this.currentDnsRecords?.find(r => r.id === recordId);
+        if (!record) {
+            alert('DNS record not found');
+            return;
+        }
+
+        // Populate form
+        document.getElementById('dns-record-id').value = record.id;
+        document.getElementById('dns-record-hostname').value = record.name;
+        document.getElementById('dns-record-ip').value = record.value;
+        
+        // Handle aliases
+        const aliases = record.aliases && record.aliases.length > 0 ? record.aliases.join('\n') : '';
+        document.getElementById('dns-record-aliases').value = aliases;
+        
+        document.getElementById('dns-record-modal-title').textContent = 'Edit DNS Record';
+        document.getElementById('dns-record-error').style.display = 'none';
+        
+        // Update button text
+        document.getElementById('save-dns-record-btn').innerHTML = '<i class="bi bi-save"></i> Update DNS Record';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('dnsRecordModal'));
+        modal.show();
+        
+        // Setup form submission
+        document.getElementById('save-dns-record-btn').onclick = () => this.saveDnsRecord();
+    }
+
+    async saveDnsRecord() {
+        console.log('saveDnsRecord called');
+        
+        const form = document.getElementById('dns-record-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const id = document.getElementById('dns-record-id').value;
+        const hostname = document.getElementById('dns-record-hostname').value.trim();
+        const ipAddress = document.getElementById('dns-record-ip').value.trim();
+        const aliasesText = document.getElementById('dns-record-aliases').value.trim();
+        
+        // Parse aliases - split by newlines and clean up
+        const aliases = aliasesText 
+            ? aliasesText.split('\n').map(alias => alias.trim()).filter(alias => alias.length > 0)
+            : [];
+
+        const isEdit = !!id;
+        const url = isEdit ? `/dnsmasq/dns-records/${id}` : '/dnsmasq/dns-records';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const errorDiv = document.getElementById('dns-record-error');
+        const saveBtn = document.getElementById('save-dns-record-btn');
+        const originalText = saveBtn.innerHTML;
+        
+        try {
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+            saveBtn.disabled = true;
+            
+            const response = await this.apiCall(url, method, {
+                hostname,
+                ipAddress,
+                aliases
+            });
+            
+            if (response.success) {
+                this.showAlert('success', `DNS record ${isEdit ? 'updated' : 'added'} successfully!`);
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('dnsRecordModal'));
+                modal.hide();
+                
+                // Refresh DNS records
+                this.loadDnsConfig();
+                this.showBanner('DNS record changed. Reload the DNSmasq service to apply changes.');
+            } else {
+                errorDiv.textContent = response.error || 'Failed to save DNS record';
+                errorDiv.style.display = 'block';
+            }
+            
+        } catch (error) {
+            console.error('Error saving DNS record:', error);
+            errorDiv.textContent = 'Failed to save DNS record: ' + error.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+
+    deleteDnsRecord(recordId) {
+        // Find the DNS record
+        const record = this.currentDnsRecords?.find(r => r.id === recordId);
+        if (!record) {
+            alert('DNS record not found');
+            return;
+        }
+
+        // Populate delete modal
+        document.getElementById('delete-dns-record-hostname').textContent = record.name;
+        document.getElementById('delete-dns-record-ip').textContent = record.value;
+        
+        const aliases = record.aliases && record.aliases.length > 0 ? record.aliases.join(', ') : 'None';
+        document.getElementById('delete-dns-record-aliases').textContent = aliases;
+        
+        // Show delete modal
+        const modal = new bootstrap.Modal(document.getElementById('deleteDnsRecordModal'));
+        modal.show();
+        
+        // Setup delete confirmation
+        document.getElementById('confirm-delete-dns-record-btn').onclick = () => this.confirmDeleteDnsRecord(recordId);
+    }
+
+    async confirmDeleteDnsRecord(recordId) {
+        const confirmBtn = document.getElementById('confirm-delete-dns-record-btn');
+        const originalText = confirmBtn.innerHTML;
+        
+        try {
+            confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+            confirmBtn.disabled = true;
+            
+            const response = await this.apiCall(`/dnsmasq/dns-records/${recordId}`, 'DELETE');
+            
+            if (response.success) {
+                this.showAlert('success', 'DNS record deleted successfully!');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDnsRecordModal'));
+                modal.hide();
+                
+                // Refresh DNS records
+                this.loadDnsConfig();
+                this.showBanner('DNS record deleted. Reload the DNSmasq service to apply changes.');
+            } else {
+                this.showAlert('danger', response.error || 'Failed to delete DNS record');
+            }
+            
+        } catch (error) {
+            console.error('Error deleting DNS record:', error);
+            this.showAlert('danger', 'Failed to delete DNS record: ' + error.message);
+        } finally {
+            confirmBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+        }
+    }
+
     // Helper function to check if a string is a valid IP address
     isValidIP(ip) {
         const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -3999,7 +4168,15 @@ function addDhcpOption() {
 }
 
 function addDnsRecord() {
-    alert('DNS Record management will be implemented next!');
+    app.showAddDnsRecordModal();
+}
+
+function editDnsRecord(recordId) {
+    app.editDnsRecord(recordId);
+}
+
+function deleteDnsRecord(recordId) {
+    app.deleteDnsRecord(recordId);
 }
 
 function addUpstreamServer() {

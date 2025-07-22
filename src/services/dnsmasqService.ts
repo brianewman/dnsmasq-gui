@@ -1607,6 +1607,198 @@ export class DnsmasqService {
     await this.updateConfig(config);
   }
 
+  // DNS Record CRUD operations
+  async getDnsRecords(): Promise<DnsRecord[]> {
+    const config = await this.getConfig();
+    return config.dnsRecords;
+  }
+
+  async createDnsRecord(recordData: Omit<DnsRecord, 'id'>): Promise<DnsRecord> {
+    const config = await this.getConfig();
+    
+    // Generate unique ID
+    const id = `dns-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Validate required fields
+    if (!recordData.name || !recordData.value || !recordData.type) {
+      throw new Error('DNS record name, value, and type are required');
+    }
+
+    // Validate hostname format
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/.test(recordData.name)) {
+      throw new Error('Invalid hostname format');
+    }
+
+    // For A records, validate IP address
+    if (recordData.type === 'A' && !this.isValidIP(recordData.value)) {
+      throw new Error('Invalid IP address format');
+    }
+
+    // Check for duplicate names (except for aliases)
+    const existingRecord = config.dnsRecords.find((r: DnsRecord) => r.name === recordData.name);
+    if (existingRecord) {
+      throw new Error(`DNS record with hostname '${recordData.name}' already exists`);
+    }
+
+    const newRecord: DnsRecord = {
+      id,
+      ...recordData
+    };
+
+    // Add to configuration
+    config.dnsRecords.push(newRecord);
+    
+    // Update configuration files
+    await this.updateDnsRecordFiles(config);
+    
+    return newRecord;
+  }
+
+  async updateDnsRecord(id: string, recordData: Partial<Omit<DnsRecord, 'id'>>): Promise<DnsRecord> {
+    const config = await this.getConfig();
+    
+    const recordIndex = config.dnsRecords.findIndex((r: DnsRecord) => r.id === id);
+    if (recordIndex === -1) {
+      throw new Error('DNS record not found');
+    }
+
+    const existingRecord = config.dnsRecords[recordIndex];
+
+    // If name is being changed, check for duplicates
+    if (recordData.name && recordData.name !== existingRecord.name) {
+      const duplicateRecord = config.dnsRecords.find((r: DnsRecord) => r.name === recordData.name && r.id !== id);
+      if (duplicateRecord) {
+        throw new Error(`DNS record with hostname '${recordData.name}' already exists`);
+      }
+    }
+
+    // Validate hostname format if provided
+    if (recordData.name && !/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/.test(recordData.name)) {
+      throw new Error('Invalid hostname format');
+    }
+
+    // For A records, validate IP address if provided
+    if (recordData.value && (recordData.type === 'A' || existingRecord.type === 'A')) {
+      if (!this.isValidIP(recordData.value)) {
+        throw new Error('Invalid IP address format');
+      }
+    }
+
+    // Update the record
+    const updatedRecord = {
+      ...existingRecord,
+      ...recordData
+    };
+
+    config.dnsRecords[recordIndex] = updatedRecord;
+    
+    // Update configuration files
+    await this.updateDnsRecordFiles(config);
+    
+    return updatedRecord;
+  }
+
+  async deleteDnsRecord(id: string): Promise<void> {
+    const config = await this.getConfig();
+    
+    const recordIndex = config.dnsRecords.findIndex((r: DnsRecord) => r.id === id);
+    if (recordIndex === -1) {
+      throw new Error('DNS record not found');
+    }
+
+    // Remove record
+    config.dnsRecords.splice(recordIndex, 1);
+    
+    // Update configuration files
+    await this.updateDnsRecordFiles(config);
+  }
+
+  private async updateDnsRecordFiles(config: DnsmasqConfig): Promise<void> {
+    try {
+      // Separate A records and CNAME records
+      const aRecords = config.dnsRecords.filter(r => r.type === 'A');
+      const cnameRecords = config.dnsRecords.filter(r => r.type === 'CNAME');
+      
+      // Also collect aliases from A records to write as CNAME records
+      const aliasRecords: Array<{name: string, value: string}> = [];
+      for (const record of aRecords) {
+        if (record.aliases && record.aliases.length > 0) {
+          for (const alias of record.aliases) {
+            aliasRecords.push({
+              name: alias,
+              value: record.name
+            });
+          }
+        }
+      }
+
+      // Update hosts file with A records
+      await this.updateHostsFile(aRecords);
+      
+      // Update main config file with CNAME records (including aliases)
+      const allCnameRecords = [
+        ...cnameRecords.map(r => ({name: r.name, value: r.value})),
+        ...aliasRecords
+      ];
+      await this.updateCnameRecords(allCnameRecords);
+      
+      console.log(`Updated DNS records: ${aRecords.length} A records, ${allCnameRecords.length} CNAME records`);
+      
+    } catch (error) {
+      console.error('Failed to update DNS record files:', error);
+      throw new Error('Failed to update DNS record files');
+    }
+  }
+
+  private async updateHostsFile(aRecords: DnsRecord[]): Promise<void> {
+    try {
+      const hostsPath = config.dnsmasq.hostsFile;
+      
+      // Create hosts file content
+      const hostsContent = aRecords
+        .map(record => `${record.value}\t${record.name}`)
+        .join('\n');
+      
+      await fs.writeFile(hostsPath, hostsContent + '\n', 'utf8');
+      console.log(`Updated hosts file: ${hostsPath}`);
+      
+    } catch (error) {
+      console.error('Failed to update hosts file:', error);
+      throw error;
+    }
+  }
+
+  private async updateCnameRecords(cnameRecords: Array<{name: string, value: string}>): Promise<void> {
+    try {
+      const configPath = config.dnsmasq.configPath;
+      
+      // Read the current config file
+      let configContent = await fs.readFile(configPath, 'utf8');
+      
+      // Remove existing cname entries
+      configContent = configContent.replace(/^cname=.*$/gm, '');
+      
+      // Remove empty lines that might be left
+      configContent = configContent.replace(/\n\s*\n/g, '\n');
+      
+      // Add new cname entries
+      if (cnameRecords.length > 0) {
+        const cnameLines = cnameRecords
+          .map(record => `cname=${record.name},${record.value}`)
+          .join('\n');
+        
+        configContent = configContent.trim() + '\n\n# DNS CNAME Records\n' + cnameLines + '\n';
+      }
+      
+      await fs.writeFile(configPath, configContent, 'utf8');
+      console.log(`Updated config file with ${cnameRecords.length} CNAME records: ${configPath}`);
+      
+    } catch (error) {
+      console.error('Failed to update CNAME records:', error);
+      throw error;
+    }
+  }
+
   private isValidIP(ip: string): boolean {
     const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipRegex.test(ip);

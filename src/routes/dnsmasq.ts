@@ -584,3 +584,152 @@ dnsmasqRoutes.get('/oui/:oui', async (req: AuthenticatedRequest, res) => {
     } as ApiResponse);
   }
 });
+
+// DNS Records endpoints
+// Get all DNS records
+dnsmasqRoutes.get('/dns-records', async (req: AuthenticatedRequest, res) => {
+  try {
+    const records = await dnsmasqService.getDnsRecords();
+    res.json({
+      success: true,
+      data: records
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to retrieve DNS records'
+    } as ApiResponse);
+  }
+});
+
+// Create a new DNS record
+dnsmasqRoutes.post('/dns-records', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { type, name, value, aliases } = req.body;
+
+    // Validation
+    if (!type || !name || !value) {
+      res.status(400).json({
+        success: false,
+        error: 'Type, name, and value are required'
+      } as ApiResponse);
+      return;
+    }
+
+    // Parse aliases if provided
+    let parsedAliases: string[] | undefined;
+    if (aliases) {
+      if (typeof aliases === 'string') {
+        // Split by newlines and filter out empty strings
+        parsedAliases = aliases.split('\n')
+          .map((alias: string) => alias.trim())
+          .filter((alias: string) => alias.length > 0);
+      } else if (Array.isArray(aliases)) {
+        parsedAliases = aliases;
+      }
+    }
+
+    const newRecord = await dnsmasqService.createDnsRecord({
+      type,
+      name,
+      value,
+      aliases: parsedAliases
+    });
+
+    res.json({
+      success: true,
+      data: newRecord,
+      message: 'DNS record created successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create DNS record'
+    } as ApiResponse);
+  }
+});
+
+// Update an existing DNS record
+dnsmasqRoutes.put('/dns-records/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    const { type, name, value, aliases } = req.body;
+
+    // Parse aliases if provided
+    let parsedAliases: string[] | undefined;
+    if (aliases !== undefined) {
+      if (typeof aliases === 'string') {
+        // Split by newlines and filter out empty strings
+        parsedAliases = aliases.split('\n')
+          .map((alias: string) => alias.trim())
+          .filter((alias: string) => alias.length > 0);
+      } else if (Array.isArray(aliases)) {
+        parsedAliases = aliases;
+      } else {
+        parsedAliases = undefined;
+      }
+    }
+
+    const updatedRecord = await dnsmasqService.updateDnsRecord(id, {
+      type,
+      name,
+      value,
+      ...(parsedAliases !== undefined && { aliases: parsedAliases })
+    });
+
+    res.json({
+      success: true,
+      data: updatedRecord,
+      message: 'DNS record updated successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update DNS record'
+    } as ApiResponse);
+  }
+});
+
+// Delete a DNS record
+dnsmasqRoutes.delete('/dns-records/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user?.isAdmin) {
+      res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+      return;
+    }
+
+    const { id } = req.params;
+    await dnsmasqService.deleteDnsRecord(id);
+
+    res.json({
+      success: true,
+      message: 'DNS record deleted successfully'
+    } as ApiResponse);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete DNS record'
+    } as ApiResponse);
+  }
+});
+
+export default dnsmasqRoutes;
