@@ -872,11 +872,11 @@
                                 <i class="bi bi-pc-display me-1"></i>Hostname
                             </label>
                             <input type="text" class="form-control" id="reservation-hostname" 
-                                   placeholder="my-device" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$">
-                            <div class="form-text">Optional: Used for DNS resolution (letters, numbers, and hyphens only)</div>
+                                   placeholder="device.example.com" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$">
+                            <div class="form-text">Optional: Used for DNS resolution (letters, numbers, hyphens, and periods allowed)</div>
                         </div>
                         <div id="reservation-error" class="alert alert-danger" style="display: none;"></div>
-                    </form>
+                    </form>/
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1192,8 +1192,8 @@
                                 <i class="bi bi-pc-display me-1"></i>Hostname *
                             </label>
                             <input type="text" class="form-control" id="dns-record-hostname" 
-                                   placeholder="example" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$" required>
-                            <div class="form-text">The hostname for the A record (letters, numbers, and hyphens only)</div>
+                                   placeholder="example.domain.com" pattern="^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$" required>
+                            <div class="form-text">The hostname or FQDN for the A record (letters, numbers, hyphens, and periods allowed)</div>
                         </div>
                         <div class="mb-3">
                             <label for="dns-record-ip" class="form-label">

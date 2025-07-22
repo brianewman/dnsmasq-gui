@@ -1,5 +1,4 @@
-# Sample DNS host entries for testing
-192.168.1.10 server.local
-192.168.1.20 pi.local
-192.168.1.30 nas.local
-192.168.1.40 router.local
+192.168.1.10	server.local
+192.168.1.20	pi.local
+192.168.1.30	nas.local
+192.168.1.40	router.local

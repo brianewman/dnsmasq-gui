@@ -945,9 +945,9 @@ export class DnsmasqService {
 
       // Validate hostname format if provided
       if (hostname) {
-        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$/;
         if (!hostnameRegex.test(hostname)) {
-          throw new Error('Invalid hostname format. Use only letters, numbers, and hyphens.');
+          throw new Error('Invalid hostname format. Use only letters, numbers, hyphens, and periods.');
         }
       }
 
@@ -998,9 +998,9 @@ export class DnsmasqService {
 
       // Validate hostname format if provided
       if (hostname) {
-        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/;
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,253}[a-zA-Z0-9])?$/;
         if (!hostnameRegex.test(hostname)) {
-          throw new Error('Invalid hostname format. Use only letters, numbers, and hyphens.');
+          throw new Error('Invalid hostname format. Use only letters, numbers, hyphens, and periods.');
         }
       }
 
