@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { config } from '../config/config';
@@ -394,8 +395,8 @@ export class DnsmasqService {
       // Load A records from hosts file
       const hostsRecords = await this.loadARecordsFromHostsFile();
       
-      // Load CNAME records from main config
-      const cnameRecords = await this.loadCnameRecordsFromMainConfig();
+      // Load CNAME records from separate config file
+      const cnameRecords = await this.loadCnameRecords();
       
       // Create a map to combine A records with their aliases and MAC addresses
       const recordMap = new Map<string, DnsRecord>();
@@ -486,16 +487,16 @@ export class DnsmasqService {
     }
   }
 
-  private async loadCnameRecordsFromMainConfig(): Promise<DnsRecord[]> {
+  private async loadCnameRecords(): Promise<DnsRecord[]> {
     try {
-      const mainConfigPath = this.configPath;
+      const cnameConfigPath = config.dnsmasq.cnamesConfigFile;
       
-      if (!await fs.pathExists(mainConfigPath)) {
-        console.log(`Main config file not found: ${mainConfigPath}`);
+      if (!await fs.pathExists(cnameConfigPath)) {
+        console.log(`CNAME config file not found: ${cnameConfigPath}`);
         return [];
       }
       
-      const content = await fs.readFile(mainConfigPath, 'utf-8');
+      const content = await fs.readFile(cnameConfigPath, 'utf-8');
       const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
       const records: DnsRecord[] = [];
       
@@ -520,11 +521,11 @@ export class DnsmasqService {
         }
       }
       
-      console.log(`Loaded ${records.length} CNAME records from ${mainConfigPath}`);
+      console.log(`Loaded ${records.length} CNAME records from ${cnameConfigPath}`);
       return records;
       
     } catch (error) {
-      console.error('Failed to load CNAME records from main config:', error);
+      console.error('Failed to load CNAME records from config file:', error);
       return [];
     }
   }
@@ -1712,28 +1713,28 @@ export class DnsmasqService {
 
   private async updateCnameRecords(cnameRecords: Array<{name: string, value: string}>): Promise<void> {
     try {
-      const configPath = config.dnsmasq.configPath;
+      const cnameConfigPath = config.dnsmasq.cnamesConfigFile;
       
-      // Read the current config file
-      let configContent = await fs.readFile(configPath, 'utf8');
+      // Create the dnsmasq.d directory if it doesn't exist
+      const configDir = path.dirname(cnameConfigPath);
+      await fs.ensureDir(configDir);
       
-      // Remove existing cname entries
-      configContent = configContent.replace(/^cname=.*$/gm, '');
+      // Generate content for the CNAME config file
+      let configContent = '# DNS CNAME Records managed by DNSmasq GUI\n';
+      configContent += '# This file is auto-generated, do not edit manually\n\n';
       
-      // Remove empty lines that might be left
-      configContent = configContent.replace(/\n\s*\n/g, '\n');
-      
-      // Add new cname entries
       if (cnameRecords.length > 0) {
         const cnameLines = cnameRecords
           .map(record => `cname=${record.name},${record.value}`)
           .join('\n');
         
-        configContent = configContent.trim() + '\n\n# DNS CNAME Records\n' + cnameLines + '\n';
+        configContent += cnameLines + '\n';
+      } else {
+        configContent += '# No CNAME records configured\n';
       }
       
-      await fs.writeFile(configPath, configContent, 'utf8');
-      console.log(`Updated config file with ${cnameRecords.length} CNAME records: ${configPath}`);
+      await fs.writeFile(cnameConfigPath, configContent, 'utf8');
+      console.log(`Updated CNAME config file with ${cnameRecords.length} CNAME records: ${cnameConfigPath}`);
       
     } catch (error) {
       console.error('Failed to update CNAME records:', error);

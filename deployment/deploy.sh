@@ -237,6 +237,11 @@ ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
     sudo chown root:dnsmasq-gui /etc/dnsmasq.hosts
     sudo chmod 664 /etc/dnsmasq.hosts
     
+    # Create and set up CNAME records file
+    sudo touch /etc/dnsmasq.d/dnsmasq-cnames.conf
+    sudo chown root:dnsmasq-gui /etc/dnsmasq.d/dnsmasq-cnames.conf
+    sudo chmod 664 /etc/dnsmasq.d/dnsmasq-cnames.conf
+    
     # Ensure DHCP leases file exists and is accessible
     sudo mkdir -p /var/lib/dhcp
     sudo touch /var/lib/dhcp/dhcpd.leases
@@ -251,6 +256,12 @@ ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
     echo "🔧 Setting up DNSmasq configuration files..."
     if [ -f "/opt/dnsmasq-gui/deployment/setup-static-leases.sh" ]; then
         bash /opt/dnsmasq-gui/deployment/setup-static-leases.sh
+    fi
+
+    # Migrate existing CNAME records to separate file
+    echo "🔄 Migrating CNAME records..."
+    if [ -f "/opt/dnsmasq-gui/deployment/migrate-cnames.sh" ]; then
+        bash /opt/dnsmasq-gui/deployment/migrate-cnames.sh
     fi
 
     # Install restart handler system (for reload/restart functionality)

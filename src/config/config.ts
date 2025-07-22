@@ -15,6 +15,7 @@ export const config = {
     rangesConfigFile: process.env.DNSMASQ_RANGES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-ranges.conf',
     optionsConfigFile: process.env.DNSMASQ_OPTIONS_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-options.conf',
     staticLeasesConfigFile: process.env.DNSMASQ_STATIC_LEASES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-static-leases.conf',
+    cnamesConfigFile: process.env.DNSMASQ_CNAMES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-cnames.conf',
     advancedConfigFile: process.env.DNSMASQ_ADVANCED_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-advanced.conf',
     
     // Default network configuration
