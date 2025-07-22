@@ -658,9 +658,11 @@ dnsmasqRoutes.post('/dns-records', async (req: AuthenticatedRequest, res) => {
 });
 
 // Update an existing DNS record
-dnsmasqRoutes.put('/dns-records/:id', async (req: AuthenticatedRequest, res) => {
+dnsmasqRoutes.put('/dns-records/:hostname', async (req: AuthenticatedRequest, res) => {
+  console.log(`PUT /dns-records/${req.params.hostname} - Request received`);
   try {
     if (!req.user?.isAdmin) {
+      console.log(`PUT /dns-records/${req.params.hostname} - Access denied: not admin`);
       res.status(403).json({
         success: false,
         error: 'Admin privileges required'
@@ -668,7 +670,7 @@ dnsmasqRoutes.put('/dns-records/:id', async (req: AuthenticatedRequest, res) => 
       return;
     }
 
-    const { id } = req.params;
+    const { hostname } = req.params;
     const { type, name, value, aliases } = req.body;
 
     // Parse aliases if provided
@@ -686,7 +688,7 @@ dnsmasqRoutes.put('/dns-records/:id', async (req: AuthenticatedRequest, res) => 
       }
     }
 
-    const updatedRecord = await dnsmasqService.updateDnsRecord(id, {
+    const updatedRecord = await dnsmasqService.updateDnsRecord(decodeURIComponent(hostname), {
       type,
       name,
       value,
@@ -707,7 +709,7 @@ dnsmasqRoutes.put('/dns-records/:id', async (req: AuthenticatedRequest, res) => 
 });
 
 // Delete a DNS record
-dnsmasqRoutes.delete('/dns-records/:id', async (req: AuthenticatedRequest, res) => {
+dnsmasqRoutes.delete('/dns-records/:hostname', async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user?.isAdmin) {
       res.status(403).json({
@@ -717,8 +719,8 @@ dnsmasqRoutes.delete('/dns-records/:id', async (req: AuthenticatedRequest, res) 
       return;
     }
 
-    const { id } = req.params;
-    await dnsmasqService.deleteDnsRecord(id);
+    const { hostname } = req.params;
+    await dnsmasqService.deleteDnsRecord(decodeURIComponent(hostname));
 
     res.json({
       success: true,

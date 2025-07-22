@@ -11,6 +11,7 @@ const app = express();
 // CORS configuration
 app.use(cors({
   origin: config.allowedOrigins,
+  
   credentials: true
 }));
 
@@ -23,6 +24,14 @@ app.use(express.static('public'));
 
 // Routes
 app.use('/api/auth', authRoutes);
+
+// Add comprehensive request logging
+app.use('/api/dnsmasq', (req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - User-Agent: ${req.get('User-Agent')}`);
+  console.log(`Headers:`, JSON.stringify(req.headers, null, 2));
+  next();
+});
+
 app.use('/api/dnsmasq', authMiddleware, dnsmasqRoutes);
 
 // Error handling

@@ -1062,49 +1062,16 @@ export class DnsmasqService {
   async restart(): Promise<void> {
     console.log('Starting DNSmasq restart operation...');
     try {
-      const restartFlag = '/tmp/dnsmasq-restart-requested';
-      const restartResult = '/tmp/dnsmasq-restart-result';
+      // Use our special restart script that works with NoNewPrivileges=true
+      const { stdout, stderr } = await execAsync('sudo /usr/local/bin/dnsmasq-restart');
       
-      // Clean up any existing result file
-      try {
-        await fs.unlink(restartResult);
-      } catch {
-        // File doesn't exist, that's fine
+      console.log('DNSmasq service restarted successfully');
+      if (stdout) {
+        console.log('Restart stdout:', stdout);
       }
-      
-      // Create restart request flag
-      await fs.writeFile(restartFlag, new Date().toISOString());
-      console.log('DNSmasq restart requested via flag file');
-      
-      // Wait for the restart handler to process the request (max 20 seconds)
-      const maxWait = 20000; // 20 seconds
-      const pollInterval = 500; // 500ms
-      let waited = 0;
-      
-      while (waited < maxWait) {
-        try {
-          const result = await fs.readFile(restartResult, 'utf8');
-          if (result.trim() === 'success') {
-            console.log('DNSmasq service restarted successfully');
-            return;
-          } else if (result.trim() === 'error') {
-            throw new Error('DNSmasq restart failed on the system');
-          }
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            // Some other error reading the file
-            throw error;
-          }
-          // File doesn't exist yet, keep waiting
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        waited += pollInterval;
+      if (stderr) {
+        console.log('Restart stderr:', stderr);
       }
-      
-      // If we get here, the restart timed out
-      console.log('Restart request timed out after 20 seconds');
-      throw new Error('Restart request timed out after 20 seconds. The restart handler may not be running or DNSmasq restart is taking longer than expected.');
       
     } catch (error: any) {
       console.log('Failed to restart dnsmasq service:', error.message);
@@ -1115,31 +1082,8 @@ export class DnsmasqService {
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      // First try to get dnsmasq process ID and send SIGHUP signal
-      const { stdout: pidOutput } = await execAsync('pidof dnsmasq');
-      const pid = pidOutput.trim();
-      
-      if (pid) {
-        console.log(`Found dnsmasq process with PID: ${pid}`);
-        const { stdout, stderr } = await execAsync(`kill -HUP ${pid}`);
-        
-        console.log('DNSmasq service reloaded successfully using SIGHUP signal');
-        if (stdout) {
-          console.log('Reload stdout:', stdout);
-        }
-        if (stderr) {
-          console.log('Reload stderr:', stderr);
-        }
-        return;
-      }
-    } catch (error: any) {
-      console.log('Failed to reload dnsmasq using SIGHUP signal:', error.message);
-    }
-
-    // Fallback: try systemctl methods (will likely fail due to NoNewPrivileges)
-    try {
-      // Use systemctl to reload dnsmasq directly
-      const { stdout, stderr } = await execAsync('sudo systemctl reload dnsmasq');
+      // Use our special reload script that works with NoNewPrivileges=true
+      const { stdout, stderr } = await execAsync('sudo /usr/local/bin/dnsmasq-reload');
       
       console.log('DNSmasq service reloaded successfully');
       if (stdout) {
@@ -1151,22 +1095,7 @@ export class DnsmasqService {
       
     } catch (error: any) {
       console.log('Failed to reload dnsmasq service:', error.message);
-      
-      // If reload fails, try restart as fallback
-      console.log('Reload failed, attempting restart as fallback...');
-      try {
-        const { stdout, stderr } = await execAsync('sudo systemctl restart dnsmasq');
-        console.log('DNSmasq service restarted successfully as fallback');
-        if (stdout) {
-          console.log('Restart stdout:', stdout);
-        }
-        if (stderr) {
-          console.log('Restart stderr:', stderr);
-        }
-      } catch (restartError: any) {
-        console.log('Both reload and restart failed:', restartError.message);
-        throw new Error(`Failed to reload DNSmasq service: ${error.message}. Restart also failed: ${restartError.message}`);
-      }
+      throw new Error(`Failed to reload DNSmasq service: ${error.message}`);
     }
   }
 
@@ -1614,7 +1543,8 @@ export class DnsmasqService {
   }
 
   async createDnsRecord(recordData: Omit<DnsRecord, 'id'>): Promise<DnsRecord> {
-    const config = await this.getConfig();
+    // Load current DNS records to check for duplicates
+    const currentRecords = await this.loadDnsRecords();
     
     // Generate unique ID
     const id = `dns-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1634,8 +1564,8 @@ export class DnsmasqService {
       throw new Error('Invalid IP address format');
     }
 
-    // Check for duplicate names (except for aliases)
-    const existingRecord = config.dnsRecords.find((r: DnsRecord) => r.name === recordData.name);
+    // Check for duplicate names
+    const existingRecord = currentRecords.find((r: DnsRecord) => r.name === recordData.name);
     if (existingRecord) {
       throw new Error(`DNS record with hostname '${recordData.name}' already exists`);
     }
@@ -1645,28 +1575,32 @@ export class DnsmasqService {
       ...recordData
     };
 
-    // Add to configuration
-    config.dnsRecords.push(newRecord);
+    // Add to current records array
+    currentRecords.push(newRecord);
     
-    // Update configuration files
-    await this.updateDnsRecordFiles(config);
+    // Create a temporary config object with the updated records
+    const tempConfig = { dnsRecords: currentRecords } as DnsmasqConfig;
+    
+    // Update configuration files directly
+    await this.updateDnsRecordFiles(tempConfig);
     
     return newRecord;
   }
 
-  async updateDnsRecord(id: string, recordData: Partial<Omit<DnsRecord, 'id'>>): Promise<DnsRecord> {
-    const config = await this.getConfig();
+  async updateDnsRecord(hostname: string, recordData: Partial<Omit<DnsRecord, 'id'>>): Promise<DnsRecord> {
+    // Load current DNS records to find the one to update
+    const currentRecords = await this.loadDnsRecords();
     
-    const recordIndex = config.dnsRecords.findIndex((r: DnsRecord) => r.id === id);
+    const recordIndex = currentRecords.findIndex((r: DnsRecord) => r.name === hostname);
     if (recordIndex === -1) {
       throw new Error('DNS record not found');
     }
 
-    const existingRecord = config.dnsRecords[recordIndex];
+    const existingRecord = currentRecords[recordIndex];
 
     // If name is being changed, check for duplicates
     if (recordData.name && recordData.name !== existingRecord.name) {
-      const duplicateRecord = config.dnsRecords.find((r: DnsRecord) => r.name === recordData.name && r.id !== id);
+      const duplicateRecord = currentRecords.find((r: DnsRecord) => r.name === recordData.name);
       if (duplicateRecord) {
         throw new Error(`DNS record with hostname '${recordData.name}' already exists`);
       }
@@ -1690,27 +1624,35 @@ export class DnsmasqService {
       ...recordData
     };
 
-    config.dnsRecords[recordIndex] = updatedRecord;
+    // Update the record in the array
+    currentRecords[recordIndex] = updatedRecord;
     
-    // Update configuration files
-    await this.updateDnsRecordFiles(config);
+    // Create a temporary config object with the updated records
+    const tempConfig = { dnsRecords: currentRecords } as DnsmasqConfig;
+    
+    // Update configuration files directly
+    await this.updateDnsRecordFiles(tempConfig);
     
     return updatedRecord;
   }
 
-  async deleteDnsRecord(id: string): Promise<void> {
-    const config = await this.getConfig();
+  async deleteDnsRecord(hostname: string): Promise<void> {
+    // Load current DNS records to find the one to delete
+    const currentRecords = await this.loadDnsRecords();
     
-    const recordIndex = config.dnsRecords.findIndex((r: DnsRecord) => r.id === id);
+    const recordIndex = currentRecords.findIndex((r: DnsRecord) => r.name === hostname);
     if (recordIndex === -1) {
       throw new Error('DNS record not found');
     }
 
-    // Remove record
-    config.dnsRecords.splice(recordIndex, 1);
+    // Remove record from the array
+    currentRecords.splice(recordIndex, 1);
     
-    // Update configuration files
-    await this.updateDnsRecordFiles(config);
+    // Create a temporary config object with the updated records
+    const tempConfig = { dnsRecords: currentRecords } as DnsmasqConfig;
+    
+    // Update configuration files directly
+    await this.updateDnsRecordFiles(tempConfig);
   }
 
   private async updateDnsRecordFiles(config: DnsmasqConfig): Promise<void> {

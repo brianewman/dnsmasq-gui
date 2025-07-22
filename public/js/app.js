@@ -3196,8 +3196,8 @@ class DnsmasqGUI {
             return;
         }
 
-        // Populate form
-        document.getElementById('dns-record-id').value = record.id;
+        // Store original hostname for identification
+        document.getElementById('dns-record-id').value = record.name; // Use hostname instead of ID
         document.getElementById('dns-record-hostname').value = record.name;
         document.getElementById('dns-record-ip').value = record.value;
         
@@ -3239,7 +3239,8 @@ class DnsmasqGUI {
             : [];
 
         const isEdit = !!id;
-        const url = isEdit ? `/dnsmasq/dns-records/${id}` : '/dnsmasq/dns-records';
+        // For edit, use original hostname in URL (stored in id field), for create use /dns-records
+        const url = isEdit ? `/dnsmasq/dns-records/${encodeURIComponent(id)}` : '/dnsmasq/dns-records';
         const method = isEdit ? 'PUT' : 'POST';
         
         const errorDiv = document.getElementById('dns-record-error');
@@ -3251,8 +3252,9 @@ class DnsmasqGUI {
             saveBtn.disabled = true;
             
             const response = await this.apiCall(url, method, {
-                hostname,
-                ipAddress,
+                type: 'A',  // For now, we only support A records
+                name: hostname,
+                value: ipAddress,
                 aliases
             });
             
@@ -3300,11 +3302,11 @@ class DnsmasqGUI {
         const modal = new bootstrap.Modal(document.getElementById('deleteDnsRecordModal'));
         modal.show();
         
-        // Setup delete confirmation
-        document.getElementById('confirm-delete-dns-record-btn').onclick = () => this.confirmDeleteDnsRecord(recordId);
+        // Setup delete confirmation - use hostname instead of recordId
+        document.getElementById('confirm-delete-dns-record-btn').onclick = () => this.confirmDeleteDnsRecord(record.name);
     }
 
-    async confirmDeleteDnsRecord(recordId) {
+    async confirmDeleteDnsRecord(hostname) {
         const confirmBtn = document.getElementById('confirm-delete-dns-record-btn');
         const originalText = confirmBtn.innerHTML;
         
@@ -3312,7 +3314,7 @@ class DnsmasqGUI {
             confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
             confirmBtn.disabled = true;
             
-            const response = await this.apiCall(`/dnsmasq/dns-records/${recordId}`, 'DELETE');
+            const response = await this.apiCall(`/dnsmasq/dns-records/${encodeURIComponent(hostname)}`, 'DELETE');
             
             if (response.success) {
                 this.showAlert('success', 'DNS record deleted successfully!');
@@ -4168,15 +4170,27 @@ function addDhcpOption() {
 }
 
 function addDnsRecord() {
-    app.showAddDnsRecordModal();
+    if (app && app.showAddDnsRecordModal) {
+        app.showAddDnsRecordModal();
+    } else {
+        console.error('App not initialized or method not available');
+    }
 }
 
 function editDnsRecord(recordId) {
-    app.editDnsRecord(recordId);
+    if (app && app.editDnsRecord) {
+        app.editDnsRecord(recordId);
+    } else {
+        console.error('App not initialized or method not available');
+    }
 }
 
 function deleteDnsRecord(recordId) {
-    app.deleteDnsRecord(recordId);
+    if (app && app.deleteDnsRecord) {
+        app.deleteDnsRecord(recordId);
+    } else {
+        console.error('App not initialized or method not available');
+    }
 }
 
 function addUpstreamServer() {
