@@ -1719,13 +1719,21 @@ export class DnsmasqService {
       const configDir = path.dirname(cnameConfigPath);
       await fs.ensureDir(configDir);
       
+      // Get the domain suffix from DNSmasq configuration for proper CNAME formatting
+      const domainSuffix = await this.getDomainSuffix();
+      
       // Generate content for the CNAME config file
       let configContent = '# DNS CNAME Records managed by DNSmasq GUI\n';
       configContent += '# This file is auto-generated, do not edit manually\n\n';
       
       if (cnameRecords.length > 0) {
         const cnameLines = cnameRecords
-          .map(record => `cname=${record.name},${record.value}`)
+          .map(record => {
+            // Add domain suffix if not already present and domain is configured
+            const alias = this.addDomainSuffixIfNeeded(record.name, domainSuffix);
+            const target = this.addDomainSuffixIfNeeded(record.value, domainSuffix);
+            return `cname=${alias},${target}`;
+          })
           .join('\n');
         
         configContent += cnameLines + '\n';
@@ -1745,5 +1753,39 @@ export class DnsmasqService {
   private isValidIP(ip: string): boolean {
     const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipRegex.test(ip);
+  }
+
+  private async getDomainSuffix(): Promise<string | null> {
+    try {
+      const configContent = await fs.readFile(this.configPath, 'utf8');
+      const lines = configContent.split('\n');
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('domain=')) {
+          return trimmedLine.substring('domain='.length).trim();
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to read domain configuration:', error);
+      return null;
+    }
+  }
+
+  private addDomainSuffixIfNeeded(hostname: string, domainSuffix: string | null): string {
+    // If no domain suffix is configured, return as-is
+    if (!domainSuffix) {
+      return hostname;
+    }
+    
+    // If hostname already contains a dot, assume it's already fully qualified
+    if (hostname.includes('.')) {
+      return hostname;
+    }
+    
+    // Add the domain suffix
+    return `${hostname}.${domainSuffix}`;
   }
 }

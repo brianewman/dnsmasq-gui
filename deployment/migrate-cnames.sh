@@ -35,6 +35,38 @@ else
 $CNAME_RECORDS
 EOF
     
+    # Check if domain expansion is configured and fix CNAME records if needed
+    DOMAIN_SUFFIX=$(grep "^domain=" "$DNSMASQ_CONF" 2>/dev/null | cut -d'=' -f2 | tr -d ' ')
+    EXPAND_HOSTS=$(grep "^expand-hosts" "$DNSMASQ_CONF" 2>/dev/null)
+    
+    if [ -n "$DOMAIN_SUFFIX" ] && [ -n "$EXPAND_HOSTS" ]; then
+        echo "🔧 Domain expansion detected (domain=$DOMAIN_SUFFIX), updating CNAME format..."
+        
+        # Create a temporary file with domain-expanded CNAME records
+        sudo awk -v domain="$DOMAIN_SUFFIX" '
+        BEGIN { 
+            print "# DNS CNAME Records managed by DNSmasq GUI"
+            print "# This file is auto-generated, do not edit manually"
+            print ""
+        }
+        /^cname=/ { 
+            sub(/^cname=/, "")
+            split($0, parts, ",")
+            alias = parts[1]
+            target = parts[2]
+            
+            # Add domain suffix if not already present
+            if (alias !~ /\./) alias = alias "." domain
+            if (target !~ /\./) target = target "." domain
+            
+            print "cname=" alias "," target
+        }
+        ' "$CNAME_CONF" | sudo tee "$CNAME_CONF.tmp" > /dev/null
+        
+        sudo mv "$CNAME_CONF.tmp" "$CNAME_CONF"
+        echo "✅ Updated CNAME records with domain expansion"
+    fi
+    
     # Set proper permissions
     sudo chown root:dnsmasq-gui "$CNAME_CONF"
     sudo chmod 664 "$CNAME_CONF"
