@@ -15,7 +15,53 @@ SERVICE_NAME="dnsmasq-gui"
 echo "📦 Building application..."
 npm run build
 
-# Create deployment package
+# Check if we should create a full deployment package or just update files
+if [ "$1" == "--update-only" ]; then
+    echo "🔄 Performing update-only deployment..."
+    
+    # Copy built files to temporary location on Pi
+    echo "📁 Copying dist files..."
+    scp -r dist/* ${PI_USER}@${PI_HOST}:/tmp/dnsmasq-gui-dist-update/
+    
+    echo "📁 Copying public files..."
+    scp -r public/* ${PI_USER}@${PI_HOST}:/tmp/dnsmasq-gui-public-update/
+    
+    # Deploy the updates
+    ssh ${PI_USER}@${PI_HOST} << 'EOF'
+        echo "🔄 Updating application files..."
+        
+        # Stop service
+        sudo systemctl stop dnsmasq-gui
+        
+        # Update files
+        sudo rsync -av /tmp/dnsmasq-gui-dist-update/ /opt/dnsmasq-gui/dist/
+        sudo rsync -av /tmp/dnsmasq-gui-public-update/ /opt/dnsmasq-gui/public/
+        
+        # Fix permissions
+        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/dist/
+        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/public/
+        
+        # Start service
+        sudo systemctl start dnsmasq-gui
+        
+        # Cleanup
+        rm -rf /tmp/dnsmasq-gui-dist-update /tmp/dnsmasq-gui-public-update
+        
+        # Check status
+        sleep 3
+        if sudo systemctl is-active --quiet dnsmasq-gui; then
+            echo "✅ Service restarted successfully"
+        else
+            echo "❌ Service failed to restart"
+            sudo journalctl -u dnsmasq-gui -n 10 --no-pager
+        fi
+EOF
+    
+    echo "✅ Update deployment complete!"
+    exit 0
+fi
+
+# Full deployment process
 echo "📄 Creating deployment package..."
 tar -czf dnsmasq-gui.tar.gz \
     dist/ \
@@ -36,138 +82,202 @@ scp deployment/troubleshoot.sh ${PI_USER}@${PI_HOST}:/tmp/
 
 # Deploy on Raspberry Pi
 echo "🎯 Deploying on Raspberry Pi..."
-ssh ${PI_USER}@${PI_HOST} << EOF
+ssh ${PI_USER}@${PI_HOST} << 'EOF'
     # Stop existing service
-    sudo systemctl stop ${SERVICE_NAME} || true
+    sudo systemctl stop dnsmasq-gui || true
 
-    # Backup existing installation
-    if [ -d "${APP_DIR}" ]; then
-        sudo mv ${APP_DIR} ${APP_DIR}.backup.\$(date +%Y%m%d_%H%M%S)
+    # Backup existing installation if it exists
+    if [ -d "/opt/dnsmasq-gui" ]; then
+        sudo mv /opt/dnsmasq-gui /opt/dnsmasq-gui.backup.$(date +%Y%m%d_%H%M%S)
     fi
 
     # Create application directory
-    sudo mkdir -p ${APP_DIR}
-    cd ${APP_DIR}
+    sudo mkdir -p /opt/dnsmasq-gui
+    cd /opt/dnsmasq-gui
 
     # Extract application
-    sudo tar -xzf /tmp/dnsmasq-gui.tar.gz -C ${APP_DIR} --strip-components=0
+    sudo tar -xzf /tmp/dnsmasq-gui.tar.gz -C /opt/dnsmasq-gui --strip-components=0
 
-    # Install dependencies
-    sudo npm ci --production
+    # Install dependencies (skip if node_modules exists and package-lock.json hasn't changed)
+    echo "📦 Installing dependencies..."
+    sudo npm ci --production --silent
 
     # Create dnsmasq-gui user if it doesn't exist
     if ! id "dnsmasq-gui" &>/dev/null; then
+        echo "👤 Creating dnsmasq-gui user..."
         sudo useradd -r -s /bin/false dnsmasq-gui
     fi
 
     # Set permissions
-    sudo chown -R dnsmasq-gui:dnsmasq-gui ${APP_DIR}
+    sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui
     
-    # Create environment file from example
-    if [ ! -f ${APP_DIR}/.env ]; then
-        sudo cp ${APP_DIR}/.env.example ${APP_DIR}/.env
-        echo "⚠️  Please edit ${APP_DIR}/.env with your configuration"
+    # Create environment file from example if it doesn't exist
+    if [ ! -f /opt/dnsmasq-gui/.env ]; then
+        sudo cp /opt/dnsmasq-gui/.env.example /opt/dnsmasq-gui/.env
+        sudo chown dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/.env
+        echo "⚠️  Please edit /opt/dnsmasq-gui/.env with your configuration"
     fi
 
     # Install systemd service
-    sudo cp ${APP_DIR}/deployment/dnsmasq-gui.service /etc/systemd/system/
+    echo "⚙️  Installing systemd service..."
+    sudo cp /opt/dnsmasq-gui/deployment/dnsmasq-gui.service /etc/systemd/system/
     sudo systemctl daemon-reload
-    sudo systemctl enable ${SERVICE_NAME}
+    sudo systemctl enable dnsmasq-gui
 
-    # Add dnsmasq-gui user to necessary groups for file access
+    # Set up permissions for DNSmasq file management
+    echo "🔐 Setting up file permissions..."
+    
+    # Add dnsmasq-gui user to necessary groups
     sudo usermod -a -G adm dnsmasq-gui
     
-    # Set up DNSmasq file permissions for the GUI to manage
-    sudo chgrp dnsmasq-gui /etc/dnsmasq.conf 2>/dev/null || echo "Warning: Could not change group for dnsmasq.conf"
-    sudo chmod g+rw /etc/dnsmasq.conf 2>/dev/null || echo "Warning: Could not set permissions for dnsmasq.conf"
+    # Set up DNSmasq configuration directories
+    sudo mkdir -p /etc/dnsmasq.d
+    sudo chown root:dnsmasq-gui /etc/dnsmasq.d
+    sudo chmod 775 /etc/dnsmasq.d
+    
+    # Set up main dnsmasq.conf permissions
+    if [ -f /etc/dnsmasq.conf ]; then
+        sudo chgrp dnsmasq-gui /etc/dnsmasq.conf
+        sudo chmod g+rw /etc/dnsmasq.conf
+    fi
+    
+    # Create and set up hosts file
+    sudo touch /etc/dnsmasq.hosts
+    sudo chown root:dnsmasq-gui /etc/dnsmasq.hosts
+    sudo chmod 664 /etc/dnsmasq.hosts
     
     # Ensure DHCP leases file exists and is accessible
+    sudo mkdir -p /var/lib/dhcp
     sudo touch /var/lib/dhcp/dhcpd.leases
-    sudo chgrp dnsmasq-gui /var/lib/dhcp/dhcpd.leases 2>/dev/null || echo "Warning: Could not change group for dhcp leases"
-    sudo chmod g+rw /var/lib/dhcp/dhcpd.leases 2>/dev/null || echo "Warning: Could not set permissions for dhcp leases"
+    sudo chgrp dnsmasq-gui /var/lib/dhcp/dhcpd.leases
+    sudo chmod g+rw /var/lib/dhcp/dhcpd.leases
 
     # Set up log directory
     sudo mkdir -p /var/log/dnsmasq-gui
     sudo chown dnsmasq-gui:dnsmasq-gui /var/log/dnsmasq-gui
 
-    # Copy troubleshooting script
-    sudo cp /tmp/troubleshoot.sh ${APP_DIR}/
-    sudo chmod +x ${APP_DIR}/troubleshoot.sh
-    sudo chown dnsmasq-gui:dnsmasq-gui ${APP_DIR}/troubleshoot.sh
-
     # Set up static leases configuration
-    echo "🔧 Setting up static leases configuration..."
-    bash ${APP_DIR}/deployment/setup-static-leases.sh
-
-    # Install restart handler system
-    echo "🔧 Setting up restart handler..."
-    if [ -f "${APP_DIR}/deployment/dnsmasq-restart-handler.sh" ]; then
-        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.sh ${APP_DIR}/restart-handler.sh
-        sudo chmod +x ${APP_DIR}/restart-handler.sh
-        
-        # Install systemd service and timer
-        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.service /etc/systemd/system/
-        sudo cp ${APP_DIR}/deployment/dnsmasq-restart-handler.timer /etc/systemd/system/
-        
-        sudo systemctl daemon-reload
-        sudo systemctl enable dnsmasq-restart-handler.timer
-        sudo systemctl start dnsmasq-restart-handler.timer
-        
-        echo "✅ Restart handler installed and enabled"
-    else
-        echo "⚠️  Warning: Restart handler files not found in deployment"
+    echo "🔧 Setting up DNSmasq configuration files..."
+    if [ -f "/opt/dnsmasq-gui/deployment/setup-static-leases.sh" ]; then
+        bash /opt/dnsmasq-gui/deployment/setup-static-leases.sh
     fi
+
+    # Install restart handler system (for reload/restart functionality)
+    echo "🔧 Setting up DNSmasq restart handlers..."
+    
+    # Install sudo scripts for restart/reload operations
+    sudo cp /opt/dnsmasq-gui/deployment/dnsmasq-gui-sudoers /etc/sudoers.d/dnsmasq-gui
+    sudo chmod 440 /etc/sudoers.d/dnsmasq-gui
+    
+    # Create restart/reload scripts that work with NoNewPrivileges
+    sudo tee /usr/local/bin/dnsmasq-restart > /dev/null << 'RESTART_SCRIPT'
+#!/bin/bash
+systemctl restart dnsmasq
+RESTART_SCRIPT
+    
+    sudo tee /usr/local/bin/dnsmasq-reload > /dev/null << 'RELOAD_SCRIPT'
+#!/bin/bash
+systemctl reload dnsmasq
+RELOAD_SCRIPT
+    
+    sudo chmod +x /usr/local/bin/dnsmasq-restart /usr/local/bin/dnsmasq-reload
 
     # Test the application before starting the service
     echo "🧪 Testing application startup..."
-    cd ${APP_DIR}
-    if sudo -u dnsmasq-gui timeout 10s node dist/index.js; then
+    cd /opt/dnsmasq-gui
+    if sudo -u dnsmasq-gui timeout 10s node dist/index.js 2>/dev/null; then
         echo "✅ Application test successful"
     else
-        echo "⚠️  Application test failed - check logs after deployment"
+        echo "⚠️  Application test failed - will attempt to start service anyway"
     fi
 
-    # Install systemd service
-    sudo cp ${APP_DIR}/deployment/dnsmasq-gui.service /etc/systemd/system/
-    sudo systemctl daemon-reload
-    sudo systemctl enable ${SERVICE_NAME}
+EOF
 
-    # Start service
-    echo "🚀 Starting service..."
-    sudo systemctl start ${SERVICE_NAME}
+# Handle different deployment modes
+if [[ "$1" == "--update-only" ]]; then
+    echo "🔄 Performing update-only deployment..."
+    ssh ${PI_USER}@${PI_HOST} << 'EOF'
+        # Update deployment mode - only replace application files
+        echo "🔄 Updating application files..."
+        
+        # Stop service
+        sudo systemctl stop dnsmasq-gui || true
+        
+        # Backup current dist directory
+        if [ -d "/opt/dnsmasq-gui/dist" ]; then
+            sudo mv /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/dist.backup.$(date +%Y%m%d_%H%M%S)
+        fi
+        
+        # Extract only the application files (dist and public directories)
+        cd /opt/dnsmasq-gui
+        sudo tar -xzf /tmp/dnsmasq-gui.tar.gz -C /opt/dnsmasq-gui --strip-components=0 dist/ public/ package.json
+        
+        # Update npm dependencies if package.json changed
+        sudo npm ci --production --silent
+        
+        # Ensure proper ownership
+        sudo chown -R dnsmasq-gui:dnsmasq-gui /opt/dnsmasq-gui/dist /opt/dnsmasq-gui/public
+        
+        echo "✅ Application files updated"
+EOF
+else
+    echo "🏗️  Performing full deployment..."
+    # The full deployment logic above already ran
+fi
+
+# Start the service
+echo "🚀 Starting service..."
+ssh ${PI_USER}@${PI_HOST} << 'EOF'
+    # Start the service
+    sudo systemctl start dnsmasq-gui
     
-    # Wait a moment and check status
+    # Wait a moment for startup
     sleep 3
-    if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
-        echo "✅ Service started successfully"
-        sudo systemctl status ${SERVICE_NAME} --no-pager
+    
+    # Check service status
+    if sudo systemctl is-active --quiet dnsmasq-gui; then
+        echo "✅ DNSmasq GUI service is running"
+        
+        # Show service status
+        echo "📊 Service Status:"
+        sudo systemctl status dnsmasq-gui --no-pager -l
+        
+        # Show recent logs
+        echo ""
+        echo "📋 Recent Logs (last 10 lines):"
+        sudo journalctl -u dnsmasq-gui --no-pager -n 10
+        
     else
-        echo "❌ Service failed to start"
-        echo "Recent logs:"
-        sudo journalctl -u ${SERVICE_NAME} -n 20 --no-pager
+        echo "❌ DNSmasq GUI service failed to start"
+        echo "📋 Error Logs:"
+        sudo journalctl -u dnsmasq-gui --no-pager -n 20
+        exit 1
     fi
+EOF
+
 EOF
 
 # Cleanup
 rm dnsmasq-gui.tar.gz
 
-echo "✅ Deployment complete!"
-echo ""
-echo "Service status check:"
-if ssh ${PI_USER}@${PI_HOST} "sudo systemctl is-active --quiet ${SERVICE_NAME}"; then
-    echo "✅ Service is running"
-else
-    echo "❌ Service is not running"
+# Final status check and completion message
+if [ $? -eq 0 ]; then
     echo ""
-    echo "To troubleshoot:"
-    echo "  ssh ${PI_USER}@${PI_HOST}"
-    echo "  sudo /opt/dnsmasq-gui/troubleshoot.sh"
+    echo "🎉 Deployment completed successfully!"
+    echo "📍 Service is running at: http://${PI_HOST}:3000"
+    echo ""
+    echo "💡 Useful commands:"
+    echo "   View logs: ssh ${PI_USER}@${PI_HOST} 'sudo journalctl -u dnsmasq-gui -f'"
+    echo "   Restart service: ssh ${PI_USER}@${PI_HOST} 'sudo systemctl restart dnsmasq-gui'"
+    echo "   Update only: $0 --update-only"
+    echo ""
+    echo "🔐 Default login: admin/admin (change this in the web interface!)"
+    echo ""
+    if [[ "$1" != "--update-only" ]]; then
+        echo "⚙️  Don't forget to configure your environment in /opt/dnsmasq-gui/.env if needed"
+    fi
+else
+    echo ""
+    echo "❌ Deployment failed! Check the logs above for details."
+    exit 1
 fi
-echo ""
-echo "Next steps:"
-echo "1. Edit /opt/dnsmasq-gui/.env on your Raspberry Pi"
-echo "2. Access the GUI at http://192.168.10.3:3000"
-echo "3. Default login: admin/admin (change this!)"
-echo ""
-echo "If the service is restarting, run the troubleshooting script:"
-echo "  ssh ${PI_USER}@${PI_HOST} 'sudo /opt/dnsmasq-gui/troubleshoot.sh'"
