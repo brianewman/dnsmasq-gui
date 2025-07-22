@@ -1048,9 +1048,9 @@ export class DnsmasqService {
   async restart(): Promise<void> {
     console.log('Starting DNSmasq restart operation...');
     try {
-      // Check if we're in development mode (Windows)
-      if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
-        console.log('Development mode: Simulating DNSmasq restart');
+      // Only skip on Windows development environment, not on Linux
+      if (process.platform === 'win32') {
+        console.log('Windows development mode: Simulating DNSmasq restart');
         return;
       }
       
@@ -1074,9 +1074,9 @@ export class DnsmasqService {
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      // Check if we're in development mode (Windows)
-      if (process.platform === 'win32' || process.env.NODE_ENV === 'development') {
-        console.log('Development mode: Simulating DNSmasq reload');
+      // Only skip on Windows development environment, not on Linux
+      if (process.platform === 'win32') {
+        console.log('Windows development mode: Simulating DNSmasq reload');
         return;
       }
       
