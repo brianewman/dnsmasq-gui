@@ -14,7 +14,7 @@ Write-Host ""
 # Test current connection
 Write-Host "Testing current SSH connection..." -ForegroundColor Yellow
 try {
-    $null = ssh -o ConnectTimeout=5 -o BatchMode=yes "$PI_USER@$PI_HOST" "echo 'Test'" 2>$null
+    ssh -o ConnectTimeout=5 -o BatchMode=yes "$PI_USER@$PI_HOST" "echo 'Test'" 2>$null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "SSH key authentication is already set up!" -ForegroundColor Green
         Write-Host "You can now run the deployment script."
