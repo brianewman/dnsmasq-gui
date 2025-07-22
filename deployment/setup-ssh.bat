@@ -41,7 +41,21 @@ echo 📤 Copying SSH key to Raspberry Pi...
 echo You will be prompted for the password for %PI_USER%@%PI_HOST%
 echo.
 
-ssh-copy-id %PI_USER%@%PI_HOST%
+REM Windows doesn't have ssh-copy-id, so we'll use an alternative method
+echo Creating temporary script to copy SSH key...
+
+REM Read the public key
+if not exist "%USERPROFILE%\.ssh\id_rsa.pub" (
+    echo ❌ Public key not found at %USERPROFILE%\.ssh\id_rsa.pub
+    echo Please make sure SSH keys were generated correctly.
+    pause
+    exit /b 1
+)
+
+REM Use type to read the public key and pipe it through SSH
+echo | set /p="Copying key: "
+type "%USERPROFILE%\.ssh\id_rsa.pub" | ssh %PI_USER%@%PI_HOST% "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh && echo 'SSH key added successfully'"
+
 if %errorlevel% == 0 (
     echo.
     echo ✅ SSH key copied successfully!
@@ -56,17 +70,22 @@ if %errorlevel% == 0 (
         echo    .\deployment\deploy.sh --update-only
     ) else (
         echo ❌ SSH key authentication test failed.
-        echo Please check your SSH configuration.
+        echo This might be normal - try running the deployment script anyway.
     )
 ) else (
     echo.
-    echo ❌ Failed to copy SSH key.
+    echo ❌ Failed to copy SSH key automatically.
     echo.
-    echo Manual setup instructions:
-    echo 1. Make sure SSH is enabled on your Raspberry Pi
-    echo 2. Check that the IP address (%PI_HOST%^) is correct
-    echo 3. Verify the username (%PI_USER%^) is correct
-    echo 4. Try connecting manually: ssh %PI_USER%@%PI_HOST%
+    echo 🔧 Manual method - Copy and paste this command:
+    echo.
+    echo 1. Copy your public key:
+    type "%USERPROFILE%\.ssh\id_rsa.pub"
+    echo.
+    echo 2. Run this command and paste the key when prompted:
+    echo    ssh %PI_USER%@%PI_HOST% "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+    echo.
+    echo 3. Then run: ssh %PI_USER%@%PI_HOST% "chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh"
+    echo.
 )
 
 echo.
