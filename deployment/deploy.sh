@@ -276,10 +276,24 @@ RELOAD_SCRIPT
     # Test the application before starting the service
     echo "🧪 Testing application startup..."
     cd /opt/dnsmasq-gui
-    if sudo -u dnsmasq-gui timeout 10s node dist/index.js 2>/dev/null; then
-        echo "✅ Application test successful"
+    
+    # Start the application in the background and capture the PID
+    sudo -u dnsmasq-gui node dist/index.js &
+    APP_PID=$!
+    
+    # Wait a few seconds for startup
+    sleep 3
+    
+    # Check if the process is still running
+    if kill -0 $APP_PID 2>/dev/null; then
+        echo "✅ Application test successful (PID: $APP_PID)"
+        # Kill the test process
+        kill $APP_PID 2>/dev/null || true
+        wait $APP_PID 2>/dev/null || true
     else
-        echo "⚠️  Application test failed - will attempt to start service anyway"
+        echo "⚠️  Application test failed - process exited during startup"
+        echo "📋 Checking for any error output..."
+        # The process already exited, no need to kill it
     fi
 
 EOF
