@@ -15,6 +15,29 @@ SERVICE_NAME="dnsmasq-gui"
 echo "📦 Building application..."
 npm run build
 
+# Test SSH connection first
+echo "🔌 Testing SSH connection to ${PI_HOST}..."
+if ! ssh -o ConnectTimeout=10 -o BatchMode=yes ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" 2>/dev/null; then
+    echo ""
+    echo "❌ SSH connection failed!"
+    echo ""
+    echo "Please ensure:"
+    echo "1. Your Raspberry Pi is running and accessible at ${PI_HOST}"
+    echo "2. SSH is enabled on the Raspberry Pi"
+    echo "3. You have SSH key authentication set up, or run:"
+    echo "   ssh-copy-id ${PI_USER}@${PI_HOST}"
+    echo "4. Or manually test the connection:"
+    echo "   ssh ${PI_USER}@${PI_HOST}"
+    echo ""
+    echo "💡 To set up SSH key authentication:"
+    echo "   ssh-keygen -t rsa (if you don't have keys)"
+    echo "   ssh-copy-id ${PI_USER}@${PI_HOST}"
+    echo ""
+    exit 1
+fi
+
+echo "✅ SSH connection successful"
+
 # Check if this is an update-only deployment
 if [ "$1" == "--update-only" ]; then
     echo "🔄 Performing update-only deployment..."
@@ -23,10 +46,10 @@ if [ "$1" == "--update-only" ]; then
     tar -czf dnsmasq-gui-update.tar.gz dist/ public/ package.json
     
     # Copy to Raspberry Pi
-    scp dnsmasq-gui-update.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
+    scp -o ConnectTimeout=30 dnsmasq-gui-update.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
     
     # Deploy the updates
-    ssh ${PI_USER}@${PI_HOST} << 'EOF'
+    ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
         echo "🔄 Updating application files..."
         
         # Stop service
@@ -87,15 +110,15 @@ tar -czf dnsmasq-gui.tar.gz \
 
 # Copy to Raspberry Pi
 echo "🔄 Copying files to Raspberry Pi..."
-scp dnsmasq-gui.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
+scp -o ConnectTimeout=30 dnsmasq-gui.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
 
 # Also copy troubleshooting script
 echo "📋 Copying troubleshooting script..."
-scp deployment/troubleshoot.sh ${PI_USER}@${PI_HOST}:/tmp/
+scp -o ConnectTimeout=30 deployment/troubleshoot.sh ${PI_USER}@${PI_HOST}:/tmp/
 
 # Deploy on Raspberry Pi
 echo "🎯 Deploying on Raspberry Pi..."
-ssh ${PI_USER}@${PI_HOST} << 'EOF'
+ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
     # Stop existing service
     sudo systemctl stop dnsmasq-gui || true
 
@@ -208,7 +231,7 @@ EOF
 
 # Start the service
 echo "🚀 Starting service..."
-ssh ${PI_USER}@${PI_HOST} << 'EOF'
+ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
     # Start the service
     sudo systemctl start dnsmasq-gui
     
