@@ -17,26 +17,45 @@ npm run build
 
 # Test SSH connection first
 echo "🔌 Testing SSH connection to ${PI_HOST}..."
-if ! ssh -o ConnectTimeout=10 -o BatchMode=yes ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" 2>/dev/null; then
-    echo ""
-    echo "❌ SSH connection failed!"
-    echo ""
-    echo "Please ensure:"
-    echo "1. Your Raspberry Pi is running and accessible at ${PI_HOST}"
-    echo "2. SSH is enabled on the Raspberry Pi"
-    echo "3. You have SSH key authentication set up, or run:"
-    echo "   ssh-copy-id ${PI_USER}@${PI_HOST}"
-    echo "4. Or manually test the connection:"
-    echo "   ssh ${PI_USER}@${PI_HOST}"
-    echo ""
-    echo "💡 To set up SSH key authentication:"
-    echo "   ssh-keygen -t rsa (if you don't have keys)"
-    echo "   ssh-copy-id ${PI_USER}@${PI_HOST}"
-    echo ""
-    exit 1
-fi
 
-echo "✅ SSH connection successful"
+# Test SSH connection with key authentication first
+SSH_TEST_OUTPUT=$(ssh -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" 2>&1)
+SSH_EXIT_CODE=$?
+
+if [ $SSH_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ SSH key authentication failed!"
+    echo "SSH Error: $SSH_TEST_OUTPUT"
+    echo ""
+    echo "You have two options:"
+    echo ""
+    echo "1. 🔐 Set up SSH key authentication (recommended):"
+    echo "   - Run: .\deployment\setup-ssh.ps1"
+    echo "   - Or manually follow the setup instructions"
+    echo ""
+    echo "2. ⚠️  Continue with password authentication (less secure):"
+    echo "   - This will prompt for your password multiple times"
+    echo "   - Use this option only for testing"
+    echo ""
+    echo -n "Continue with password authentication? (y/N): "
+    read -r CONTINUE_WITH_PASSWORD
+    
+    if [[ "$CONTINUE_WITH_PASSWORD" =~ ^[Yy]$ ]]; then
+        echo "⚠️  Proceeding with password authentication..."
+        # Remove BatchMode for password authentication
+        BATCH_MODE=""
+    else
+        echo ""
+        echo "Please set up SSH key authentication first:"
+        echo "   .\deployment\setup-ssh.ps1"
+        echo ""
+        exit 1
+    fi
+else
+    echo "✅ SSH connection successful"
+    # Use BatchMode for key authentication
+    BATCH_MODE="-o BatchMode=yes"
+fi
 
 # Check if this is an update-only deployment
 if [ "$1" == "--update-only" ]; then
@@ -46,10 +65,10 @@ if [ "$1" == "--update-only" ]; then
     tar -czf dnsmasq-gui-update.tar.gz dist/ public/ package.json
     
     # Copy to Raspberry Pi
-    scp -o ConnectTimeout=30 dnsmasq-gui-update.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
+    scp -o ConnectTimeout=30 $BATCH_MODE dnsmasq-gui-update.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
     
     # Deploy the updates
-    ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
+    ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
         echo "🔄 Updating application files..."
         
         # Stop service
@@ -110,15 +129,15 @@ tar -czf dnsmasq-gui.tar.gz \
 
 # Copy to Raspberry Pi
 echo "🔄 Copying files to Raspberry Pi..."
-scp -o ConnectTimeout=30 dnsmasq-gui.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
+scp -o ConnectTimeout=30 $BATCH_MODE dnsmasq-gui.tar.gz ${PI_USER}@${PI_HOST}:/tmp/
 
 # Also copy troubleshooting script
 echo "📋 Copying troubleshooting script..."
-scp -o ConnectTimeout=30 deployment/troubleshoot.sh ${PI_USER}@${PI_HOST}:/tmp/
+scp -o ConnectTimeout=30 $BATCH_MODE deployment/troubleshoot.sh ${PI_USER}@${PI_HOST}:/tmp/
 
 # Deploy on Raspberry Pi
 echo "🎯 Deploying on Raspberry Pi..."
-ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
+ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
     # Stop existing service
     sudo systemctl stop dnsmasq-gui || true
 
@@ -231,7 +250,7 @@ EOF
 
 # Start the service
 echo "🚀 Starting service..."
-ssh -o ConnectTimeout=30 ${PI_USER}@${PI_HOST} << 'EOF'
+ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
     # Start the service
     sudo systemctl start dnsmasq-gui
     
