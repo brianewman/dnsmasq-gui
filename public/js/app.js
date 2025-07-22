@@ -1783,8 +1783,79 @@ class DnsmasqGUI {
     }
 
     // Placeholder methods for other sections
-    loadDnsConfig() {
+    async loadDnsConfig() {
         console.log('Loading DNS configuration...');
+        try {
+            const response = await this.apiCall('/dnsmasq/config');
+            console.log('DNS config response:', response);
+            
+            if (response.success && response.data.dnsRecords) {
+                this.displayDnsRecords(response.data.dnsRecords);
+            } else {
+                console.error('Failed to load DNS records:', response.error);
+                document.getElementById('dns-records-container').innerHTML = 
+                    '<div class="alert alert-warning">Failed to load DNS records</div>';
+            }
+        } catch (error) {
+            console.error('Error loading DNS configuration:', error);
+            document.getElementById('dns-records-container').innerHTML = 
+                '<div class="alert alert-danger">Error loading DNS records: ' + error.message + '</div>';
+        }
+    }
+
+    displayDnsRecords(records) {
+        const container = document.getElementById('dns-records-container');
+        
+        if (!records || records.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No DNS records found</div>';
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Hostname</th>
+                            <th>IP Address</th>
+                            <th>Aliases (CNAME)</th>
+                            <th>MAC Address</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        records.forEach(record => {
+            const aliases = record.aliases && record.aliases.length > 0 ? 
+                record.aliases.join(', ') : '';
+            const macAddress = record.macAddress || '';
+            
+            html += `
+                <tr>
+                    <td><span class="badge bg-primary">${record.type}</span></td>
+                    <td>${record.name}</td>
+                    <td>${record.value}</td>
+                    <td>${aliases}</td>
+                    <td class="text-muted">${macAddress}</td>
+                    <td>
+                        <button class="btn btn-outline-secondary btn-sm me-1" onclick="editDnsRecord('${record.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteDnsRecord('${record.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>`;
+
+        container.innerHTML = html;
+        console.log(`Displayed ${records.length} DNS records`);
     }
 
     loadNetworkConfig() {

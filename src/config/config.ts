@@ -9,6 +9,7 @@ export const config = {
   dnsmasq: {
     configPath: process.env.DNSMASQ_CONFIG_PATH || './dev/dnsmasq.conf',
     hostsPath: process.env.DNSMASQ_HOSTS_PATH || './dev/hosts',
+    hostsFile: process.env.DNSMASQ_HOSTS_FILE || './dev/dnsmasq.hosts',
     leasesPath: process.env.DNSMASQ_LEASES_PATH || './dev/dnsmasq.leases',
     additionalConfigDir: process.env.DNSMASQ_ADDITIONAL_CONFIG_DIR || './dev/dnsmasq.d',
     rangesConfigFile: process.env.DNSMASQ_RANGES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-ranges.conf',

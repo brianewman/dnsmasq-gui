@@ -37,6 +37,8 @@ export interface DnsRecord {
   priority?: number; // For MX and SRV records
   weight?: number;   // For SRV records
   port?: number;     // For SRV records
+  aliases?: string[]; // CNAME records that point to this host
+  macAddress?: string; // MAC address from static DHCP reservations (read-only)
 }
 
 export interface NetworkInterface {

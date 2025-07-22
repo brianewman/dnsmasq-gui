@@ -64,6 +64,10 @@ export class DnsmasqService {
       const advancedSettings = await this.loadAdvancedSettings();
       Object.assign(config, advancedSettings);
       
+      // Load DNS records from hosts file and CNAME records from main config
+      const dnsRecords = await this.loadDnsRecords();
+      config.dnsRecords = dnsRecords;
+      
       // Load cache settings from main config file
       const cacheSettings = await this.loadCacheSettingsFromMainConfig();
       Object.assign(config, cacheSettings);
@@ -380,6 +384,148 @@ export class DnsmasqService {
     } catch (error) {
       console.error('Failed to load cache settings from main config:', error);
       return {};
+    }
+  }
+
+  private async loadDnsRecords(): Promise<DnsRecord[]> {
+    try {
+      const records: DnsRecord[] = [];
+      
+      // Load A records from hosts file
+      const hostsRecords = await this.loadARecordsFromHostsFile();
+      
+      // Load CNAME records from main config
+      const cnameRecords = await this.loadCnameRecordsFromMainConfig();
+      
+      // Create a map to combine A records with their aliases and MAC addresses
+      const recordMap = new Map<string, DnsRecord>();
+      
+      // First, add all A records
+      for (const record of hostsRecords) {
+        recordMap.set(record.name, record);
+      }
+      
+      // Get static DHCP leases to match MAC addresses
+      const staticLeases = await this.loadStaticLeases();
+      
+      // Add MAC addresses to records that have static DHCP reservations
+      for (const [hostname, record] of recordMap) {
+        const matchingLease = staticLeases.find(lease => 
+          lease.hostname === hostname || lease.ipAddress === record.value
+        );
+        if (matchingLease) {
+          record.macAddress = matchingLease.macAddress;
+        }
+      }
+      
+      // Process CNAME records and add them as aliases to existing A records
+      for (const cnameRecord of cnameRecords) {
+        const targetRecord = recordMap.get(cnameRecord.value);
+        if (targetRecord) {
+          // Add CNAME as alias to the target A record
+          if (!targetRecord.aliases) {
+            targetRecord.aliases = [];
+          }
+          targetRecord.aliases.push(cnameRecord.name);
+        } else {
+          // CNAME points to something not in our hosts file, add it as a separate record
+          recordMap.set(cnameRecord.name, cnameRecord);
+        }
+      }
+      
+      // Convert map back to array
+      records.push(...recordMap.values());
+      
+      console.log(`Loaded ${records.length} DNS records (${hostsRecords.length} A records, ${cnameRecords.length} CNAME records)`);
+      return records;
+      
+    } catch (error) {
+      console.error('Failed to load DNS records:', error);
+      return [];
+    }
+  }
+
+  private async loadARecordsFromHostsFile(): Promise<DnsRecord[]> {
+    try {
+      const hostsPath = config.dnsmasq.hostsFile;
+      
+      if (!await fs.pathExists(hostsPath)) {
+        console.log(`Hosts file not found: ${hostsPath}`);
+        return [];
+      }
+      
+      const content = await fs.readFile(hostsPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const records: DnsRecord[] = [];
+      
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const ipAddress = parts[0];
+          const hostname = parts[1];
+          
+          // Validate IP address format
+          if (this.isValidIP(ipAddress)) {
+            records.push({
+              id: `dns-a-${records.length}`,
+              type: 'A',
+              name: hostname,
+              value: ipAddress,
+              aliases: []
+            });
+          }
+        }
+      }
+      
+      console.log(`Loaded ${records.length} A records from ${hostsPath}`);
+      return records;
+      
+    } catch (error) {
+      console.error('Failed to load A records from hosts file:', error);
+      return [];
+    }
+  }
+
+  private async loadCnameRecordsFromMainConfig(): Promise<DnsRecord[]> {
+    try {
+      const mainConfigPath = this.configPath;
+      
+      if (!await fs.pathExists(mainConfigPath)) {
+        console.log(`Main config file not found: ${mainConfigPath}`);
+        return [];
+      }
+      
+      const content = await fs.readFile(mainConfigPath, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+      const records: DnsRecord[] = [];
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Parse CNAME records (format: cname=alias,target)
+        if (trimmedLine.startsWith('cname=')) {
+          const cnameValue = trimmedLine.substring('cname='.length);
+          const parts = cnameValue.split(',');
+          if (parts.length >= 2) {
+            const alias = parts[0].trim();
+            const target = parts[1].trim();
+            
+            records.push({
+              id: `dns-cname-${records.length}`,
+              type: 'CNAME',
+              name: alias,
+              value: target
+            });
+          }
+        }
+      }
+      
+      console.log(`Loaded ${records.length} CNAME records from ${mainConfigPath}`);
+      return records;
+      
+    } catch (error) {
+      console.error('Failed to load CNAME records from main config:', error);
+      return [];
     }
   }
 
