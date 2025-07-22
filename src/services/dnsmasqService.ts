@@ -735,16 +735,8 @@ export class DnsmasqService {
       await fs.writeFile(advancedConfigPath, configContent);
       console.log(`Updated advanced settings in ${advancedConfigPath}`);
       
-      // Create a flag to trigger dnsmasq restart
-      try {
-        await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
-      } catch (flagError) {
-        // On Windows, use temp directory
-        const tempDir = process.env.TEMP || process.env.TMP || './tmp';
-        await fs.ensureDir(tempDir);
-        await fs.writeFile(`${tempDir}/dnsmasq-restart-requested`, new Date().toISOString());
-        console.log('Created restart flag in Windows temp directory');
-      }
+      // Note: DNSmasq will need to be restarted to pick up configuration changes
+      // This happens automatically when restart() or reload() methods are called
       
     } catch (error) {
       console.error('Failed to update advanced settings:', error);
@@ -832,15 +824,8 @@ export class DnsmasqService {
       await fs.writeFile(staticLeasesPath, content);
       console.log(`Updated ${staticLeases.length} static leases in ${staticLeasesPath}`);
       
-      // Create a flag to trigger dnsmasq restart so it picks up the new static leases
-      try {
-        await fs.writeFile('/tmp/dnsmasq-restart-requested', new Date().toISOString());
-      } catch (flagError) {
-        // On Windows, use temp directory
-        const tempDir = process.env.TEMP || process.env.TMP || './tmp';
-        await fs.ensureDir(tempDir);
-        await fs.writeFile(`${tempDir}/dnsmasq-restart-requested`, new Date().toISOString());
-      }
+      // Note: DNSmasq will need to be restarted to pick up static lease changes
+      // This happens automatically when restart() or reload() methods are called
       
     } catch (error) {
       console.error('Failed to update static leases file:', error);
@@ -1063,8 +1048,8 @@ export class DnsmasqService {
   async restart(): Promise<void> {
     console.log('Starting DNSmasq restart operation...');
     try {
-      // Use our special restart script that works with NoNewPrivileges=true
-      const { stdout, stderr } = await execAsync('sudo /usr/local/bin/dnsmasq-restart');
+      // Use systemctl directly to restart dnsmasq
+      const { stdout, stderr } = await execAsync('sudo systemctl restart dnsmasq');
       
       console.log('DNSmasq service restarted successfully');
       if (stdout) {
@@ -1083,8 +1068,8 @@ export class DnsmasqService {
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      // Use our special reload script that works with NoNewPrivileges=true
-      const { stdout, stderr } = await execAsync('sudo /usr/local/bin/dnsmasq-reload');
+      // Use systemctl directly to reload dnsmasq
+      const { stdout, stderr } = await execAsync('sudo systemctl reload dnsmasq');
       
       console.log('DNSmasq service reloaded successfully');
       if (stdout) {
