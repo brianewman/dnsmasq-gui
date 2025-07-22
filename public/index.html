@@ -535,16 +535,50 @@
 
                 <!-- DNS Records Section -->
                 <div id="dns-section" class="content-section" style="display: none;">
-                    <h2>DNS Records</h2>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2>DNS Records</h2>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="app.loadDnsConfig()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <span class="badge bg-info" id="dns-records-count">0</span>
+                        </div>
+                    </div>
+                    
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="mb-0">DNS Entries</h5>
+                            <h6 class="mb-0">DNS Entries</h6>
                         </div>
                         <div class="card-body">
+                            <!-- Filter Controls -->
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="dns-source-filter" class="form-label small">Source</label>
+                                    <select class="form-select form-select-sm" id="dns-source-filter">
+                                        <option value="">All Sources</option>
+                                        <option value="hosts">Hosts File</option>
+                                        <option value="dhcp">DHCP Leases</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="dns-search-filter" class="form-label small">Search</label>
+                                    <input type="text" class="form-control form-control-sm" id="dns-search-filter"
+                                           placeholder="Hostname, IP address, or alias">
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button class="btn btn-outline-secondary btn-sm w-100" id="clear-dns-filters-btn">
+                                        <i class="bi bi-x-circle"></i> Clear Filters
+                                    </button>
+                                </div>
+                            </div>
+                            
                             <div id="dns-records-container"></div>
-                            <button class="btn btn-success btn-sm" onclick="addDnsRecord()">
-                                <i class="bi bi-plus"></i> Add DNS Record
-                            </button>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-success btn-sm" onclick="addDnsRecord()">
+                                    <i class="bi bi-plus"></i> Add DNS Record
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

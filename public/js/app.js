@@ -60,7 +60,7 @@ class DnsmasqGUI {
         };
         
         this.currentDnsFilters = {
-            type: '',
+            source: '',
             search: ''
         };
         
@@ -179,6 +179,9 @@ class DnsmasqGUI {
         
         // Add filtering event listeners for DHCP options table
         this.initOptionFilterListeners();
+        
+        // Add filtering event listeners for DNS records table
+        this.initDnsFilterListeners();
         
         // Add modal accessibility event listeners
         this.initModalEventListeners();
@@ -449,6 +452,35 @@ class DnsmasqGUI {
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', () => {
                 this.clearOptionFilters();
+            });
+        }
+    }
+
+    initDnsFilterListeners() {
+        // Add change listeners to DNS filter controls
+        const sourceFilter = document.getElementById('dns-source-filter');
+        const searchFilter = document.getElementById('dns-search-filter');
+        const clearFiltersBtn = document.getElementById('clear-dns-filters-btn');
+        
+        if (sourceFilter) {
+            sourceFilter.addEventListener('change', (e) => {
+                this.currentDnsFilters.source = e.target.value;
+                this.updateFilterVisualState(sourceFilter);
+                this.applyDnsFiltersAndRender();
+            });
+        }
+        
+        if (searchFilter) {
+            searchFilter.addEventListener('input', (e) => {
+                this.currentDnsFilters.search = e.target.value;
+                this.updateFilterVisualState(searchFilter);
+                this.applyDnsFiltersAndRender();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearDnsFilters();
             });
         }
     }
@@ -1803,9 +1835,14 @@ class DnsmasqGUI {
             console.log('DNS config response:', response);
             
             if (response.success && response.data.dnsRecords) {
-                // Store records and apply sorting/filtering
+                // Store the original records for filtering (never overwrite this)
                 this.currentDnsRecords = response.data.dnsRecords;
-                this.applyDnsFiltersAndRender();
+                
+                // Create the initial table display
+                this.displayDnsRecords(response.data.dnsRecords);
+                
+                // Update filter counts
+                this.updateDnsFilterCounts(response.data.dnsRecords);
             } else {
                 console.error('Failed to load DNS records:', response.error);
                 document.getElementById('dns-records-container').innerHTML = 
@@ -1826,8 +1863,7 @@ class DnsmasqGUI {
             return;
         }
 
-        // Store records for sorting and filtering
-        this.currentDnsRecords = records;
+        // Never overwrite currentDnsRecords - it should only be set during initial load
 
         let html = `
             <div class="table-responsive">
@@ -2895,6 +2931,42 @@ class DnsmasqGUI {
         });
     }
 
+    clearDnsFilters() {
+        this.currentDnsFilters = { source: '', search: '' };
+        
+        // Clear UI controls
+        const sourceFilter = document.getElementById('dns-source-filter');
+        const searchFilter = document.getElementById('dns-search-filter');
+        
+        if (sourceFilter) {
+            sourceFilter.value = '';
+            this.updateFilterVisualState(sourceFilter);
+        }
+        if (searchFilter) {
+            searchFilter.value = '';
+            this.updateFilterVisualState(searchFilter);
+        }
+        
+        // Re-render with no filters and update counts
+        this.applyDnsFiltersAndRender();
+    }
+
+    updateDnsFilterCounts(filteredRecords) {
+        const dnsRecordsCount = document.getElementById('dns-records-count');
+        if (dnsRecordsCount) {
+            const totalCount = this.currentDnsRecords ? this.currentDnsRecords.length : 0;
+            const filteredCount = filteredRecords.length;
+            
+            if (filteredCount === totalCount) {
+                dnsRecordsCount.textContent = totalCount;
+                dnsRecordsCount.className = 'badge bg-info';
+            } else {
+                dnsRecordsCount.textContent = `${filteredCount}/${totalCount}`;
+                dnsRecordsCount.className = 'badge bg-warning';
+            }
+        }
+    }
+
     // DNS Records sorting functions
     sortDnsRecords(column) {
         // Cycle through three states: asc -> desc -> unsorted (null)
@@ -2921,11 +2993,12 @@ class DnsmasqGUI {
 
     applyDnsFiltersAndRender() {
         if (!this.currentDnsRecords || this.currentDnsRecords.length === 0) {
-            this.displayDnsRecords([]);
+            this.renderDnsRecords([]);
+            this.updateDnsFilterCounts([]);
             return;
         }
         
-        // Apply filters (when implemented later)
+        // Apply filters
         let filteredRecords = this.filterDnsRecords(this.currentDnsRecords);
         
         // Apply sorting if any
@@ -2936,11 +3009,42 @@ class DnsmasqGUI {
         // Render filtered and sorted results
         this.renderDnsRecords(filteredRecords);
         this.updateDnsSortHeaders();
+        this.updateDnsFilterCounts(filteredRecords);
     }
 
     filterDnsRecords(records) {
-        // For now, return all records (filtering can be added later)
-        return records;
+        return records.filter(record => {
+            // Source filter (A records with MAC addresses are from DHCP leases)
+            if (this.currentDnsFilters.source) {
+                const isFromDhcp = record.type === 'A' && record.macAddress;
+                const isFromHosts = !isFromDhcp;
+                
+                if (this.currentDnsFilters.source === 'dhcp' && !isFromDhcp) {
+                    return false;
+                }
+                if (this.currentDnsFilters.source === 'hosts' && !isFromHosts) {
+                    return false;
+                }
+            }
+            
+            // Search filter (hostname, IP address, or aliases)
+            if (this.currentDnsFilters.search) {
+                const searchTerm = this.currentDnsFilters.search.toLowerCase();
+                const hostname = (record.name || '').toLowerCase();
+                const ipAddress = (record.value || '').toLowerCase();
+                const aliases = record.aliases ? record.aliases.join(' ').toLowerCase() : '';
+                const macAddress = (record.macAddress || '').toLowerCase();
+                
+                if (!hostname.includes(searchTerm) && 
+                    !ipAddress.includes(searchTerm) && 
+                    !aliases.includes(searchTerm) &&
+                    !macAddress.includes(searchTerm)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
     }
 
     sortFilteredDnsRecords(records) {
