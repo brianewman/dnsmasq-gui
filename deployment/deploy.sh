@@ -18,14 +18,54 @@ npm run build
 # Test SSH connection first
 echo "🔌 Testing SSH connection to ${PI_HOST}..."
 
-# Test SSH connection with key authentication first
-SSH_TEST_OUTPUT=$(ssh -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" 2>&1)
-SSH_EXIT_CODE=$?
+# Define SSH key path - handle both Windows and Unix environments
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ -d "/mnt/c/Users" ]]; then
+    # Windows environment (Git Bash/MSYS/Cygwin)
+    # Try multiple Windows SSH key locations
+    WINDOWS_USER=$(whoami)
+    SSH_KEY_PATH="/mnt/c/Users/$WINDOWS_USER/.ssh/id_rsa"
+    # Also try the USERPROFILE path if it exists
+    if [ -n "$USERPROFILE" ] && [ -f "$USERPROFILE/.ssh/id_rsa" ]; then
+        SSH_KEY_PATH="$USERPROFILE/.ssh/id_rsa"
+    fi
+else
+    # Unix environment
+    SSH_KEY_PATH="$HOME/.ssh/id_rsa"
+fi
 
-if [ $SSH_EXIT_CODE -ne 0 ]; then
+
+echo "Looking for SSH key at: $SSH_KEY_PATH"
+
+# Create a temporary copy of the SSH key with proper permissions if needed
+TEMP_KEY_PATH=""
+if [ -f "$SSH_KEY_PATH" ]; then
+    # Check if the key has bad permissions (Windows filesystem issue)
+    if [[ "$(stat -c %a "$SSH_KEY_PATH" 2>/dev/null)" == "777" ]] || [[ "$(ls -la "$SSH_KEY_PATH" | cut -c1-10)" == "-rwxrwxrwx" ]]; then
+        echo "⚠️  SSH key has insecure permissions, creating temporary copy..."
+        TEMP_KEY_PATH="/tmp/ssh_key_$$"
+        cp "$SSH_KEY_PATH" "$TEMP_KEY_PATH"
+        chmod 600 "$TEMP_KEY_PATH"
+        SSH_KEY_PATH="$TEMP_KEY_PATH"
+    fi
+fi
+
+# Test SSH connection - try without explicit key first (relies on SSH agent or default discovery)
+if ssh -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" >/dev/null 2>&1; then
+    echo "✅ SSH connection successful (using default key discovery)"
+    # Use BatchMode without explicit key for authentication
+    BATCH_MODE="-o BatchMode=yes"
+elif [ -f "$SSH_KEY_PATH" ] && ssh -i "$SSH_KEY_PATH" -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no ${PI_USER}@${PI_HOST} "echo 'Connection test successful'" >/dev/null 2>&1; then
+    echo "✅ SSH connection successful (using explicit key)"
+    # Use BatchMode with explicit key for authentication
+    BATCH_MODE="-i $SSH_KEY_PATH -o BatchMode=yes"
+else
     echo ""
     echo "❌ SSH key authentication failed!"
-    echo "SSH Error: $SSH_TEST_OUTPUT"
+    if [ ! -f "$SSH_KEY_PATH" ]; then
+        echo "SSH key not found at: $SSH_KEY_PATH"
+    else
+        echo "SSH key exists but authentication failed"
+    fi
     echo ""
     echo "You have two options:"
     echo ""
@@ -51,10 +91,6 @@ if [ $SSH_EXIT_CODE -ne 0 ]; then
         echo ""
         exit 1
     fi
-else
-    echo "✅ SSH connection successful"
-    # Use BatchMode for key authentication
-    BATCH_MODE="-o BatchMode=yes"
 fi
 
 # Check if this is an update-only deployment
@@ -280,6 +316,11 @@ EOF
 
 # Cleanup
 rm dnsmasq-gui.tar.gz
+
+# Cleanup temporary SSH key if created
+if [ -n "$TEMP_KEY_PATH" ] && [ -f "$TEMP_KEY_PATH" ]; then
+    rm "$TEMP_KEY_PATH"
+fi
 
 # Final status check and completion message
 echo ""
