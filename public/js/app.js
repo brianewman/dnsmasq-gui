@@ -118,6 +118,17 @@ class DnsmasqGUI {
             });
         }
         
+        // Password field Enter key handler
+        const passwordField = document.getElementById('password');
+        if (passwordField) {
+            passwordField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.login();
+                }
+            });
+        }
+        
         // Login button in modal footer
         const loginButton = document.getElementById('loginBtn');
         if (loginButton) {
