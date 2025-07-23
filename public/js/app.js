@@ -567,6 +567,22 @@ class DnsmasqGUI {
         }
     }
 
+    navigateToReservationsWithMac(macAddress) {
+        // Navigate to reservations section
+        this.showSection('reservations');
+        
+        // Set the search filter to the MAC address
+        setTimeout(() => {
+            const searchFilter = document.getElementById('reservations-search-filter');
+            if (searchFilter) {
+                searchFilter.value = macAddress;
+                this.currentReservationFilters.search = macAddress;
+                this.updateFilterVisualState(searchFilter);
+                this.applyReservationFiltersAndRender();
+            }
+        }, 300); // Wait for section to load
+    }
+
     async loadDashboard() {
         try {
             // Load service status
@@ -3121,7 +3137,18 @@ class DnsmasqGUI {
         tableBody.innerHTML = records.map(record => {
             const aliases = record.aliases && record.aliases.length > 0 ? 
                 record.aliases.join(', ') : '<span class="text-muted">-</span>';
-            const macAddress = record.macAddress || '<span class="text-muted">-</span>';
+            
+            // Make MAC address clickable if it exists
+            let macAddress;
+            if (record.macAddress) {
+                macAddress = `<a href="#" class="text-decoration-none" 
+                    onclick="app.navigateToReservationsWithMac('${record.macAddress}')" 
+                    title="View DHCP reservation for ${record.macAddress}">
+                    <code class="text-primary">${record.macAddress}</code>
+                </a>`;
+            } else {
+                macAddress = '<span class="text-muted">-</span>';
+            }
             
             return `
                 <tr>
