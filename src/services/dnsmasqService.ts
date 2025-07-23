@@ -354,13 +354,25 @@ export class DnsmasqService {
 
   private async loadCacheSettingsFromMainConfig(): Promise<Partial<DnsmasqConfig>> {
     try {
+      // Try to load cache settings from advanced config file first, then fall back to main config
+      const advancedConfigPath = config.dnsmasq.advancedConfigFile;
       const mainConfigPath = this.configPath;
       
-      if (!await fs.pathExists(mainConfigPath)) {
-        return {};
+      let configPath = advancedConfigPath;
+      let exists = await fs.pathExists(advancedConfigPath);
+      
+      if (!exists) {
+        console.log(`Advanced config file does not exist, checking main config: ${mainConfigPath}`);
+        configPath = mainConfigPath;
+        exists = await fs.pathExists(mainConfigPath);
+        
+        if (!exists) {
+          console.log(`Main config file does not exist: ${mainConfigPath}`);
+          return {};
+        }
       }
       
-      const content = await fs.readFile(mainConfigPath, 'utf-8');
+      const content = await fs.readFile(configPath, 'utf-8');
       const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
       
       const cacheSettings: Partial<DnsmasqConfig> = {};
@@ -368,7 +380,7 @@ export class DnsmasqService {
       for (const line of lines) {
         const trimmedLine = line.trim();
         
-        // Parse cache settings from main config
+        // Parse cache settings
         if (trimmedLine.startsWith('cache-size=')) {
           cacheSettings.cacheSize = parseInt(trimmedLine.split('=')[1]) || 150;
         }
@@ -380,10 +392,10 @@ export class DnsmasqService {
         }
       }
       
-      console.log(`Loaded cache settings from main config: ${mainConfigPath}`);
+      console.log(`Loaded cache settings from config: ${configPath}`);
       return cacheSettings;
     } catch (error) {
-      console.error('Failed to load cache settings from main config:', error);
+      console.error('Failed to load cache settings from config:', error);
       return {};
     }
   }
@@ -644,15 +656,14 @@ export class DnsmasqService {
         configLines.push('expand-hosts');
       }
       
-      // Cache settings - Skip these as they're already in main dnsmasq.conf
-      // to avoid conflicts that prevent dnsmasq from starting
-      // configLines.push(`cache-size=${newConfig.cacheSize || 150}`);
-      // if (newConfig.negTtl !== undefined) {
-      //   configLines.push(`neg-ttl=${newConfig.negTtl}`);
-      // }
-      // if (newConfig.localTtl !== undefined) {
-      //   configLines.push(`local-ttl=${newConfig.localTtl}`);
-      // }
+      // Cache settings
+      configLines.push(`cache-size=${newConfig.cacheSize || 150}`);
+      if (newConfig.negTtl !== undefined) {
+        configLines.push(`neg-ttl=${newConfig.negTtl}`);
+      }
+      if (newConfig.localTtl !== undefined) {
+        configLines.push(`local-ttl=${newConfig.localTtl}`);
+      }
       
       // DNS Settings
       if (newConfig.noResolv) {
