@@ -177,15 +177,19 @@ dnsmasqRoutes.post('/reload', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
+    console.log('Reload request received from user:', req.user.username);
     await dnsmasqService.reload();
+    console.log('Reload completed successfully');
     res.json({
       success: true,
       message: 'DNSmasq service reloaded'
     } as ApiResponse);
   } catch (error) {
+    console.error('Reload failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
       success: false,
-      error: 'Failed to reload dnsmasq service'
+      error: errorMessage
     } as ApiResponse);
   }
 });
@@ -201,15 +205,19 @@ dnsmasqRoutes.post('/restart', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
+    console.log('Restart request received from user:', req.user.username);
     await dnsmasqService.restart();
+    console.log('Restart completed successfully');
     res.json({
       success: true,
       message: 'DNSmasq service restarted'
     } as ApiResponse);
   } catch (error) {
+    console.error('Restart failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
       success: false,
-      error: 'Failed to restart dnsmasq service'
+      error: errorMessage
     } as ApiResponse);
   }
 });

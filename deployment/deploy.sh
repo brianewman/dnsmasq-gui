@@ -267,9 +267,40 @@ ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
     # Install restart handler system (for reload/restart functionality)
     echo "🔧 Setting up DNSmasq restart handlers..."
     
-    # Install sudo scripts for restart/reload operations
+    # Install sudo scripts for restart/reload operations with validation
+    echo "📋 Installing sudoers configuration..."
+    
+    # First, remove any existing sudoers file to start clean
+    sudo rm -f /etc/sudoers.d/dnsmasq-gui
+    
+    # Copy the sudoers file and ensure Unix line endings
     sudo cp /opt/dnsmasq-gui/deployment/dnsmasq-gui-sudoers /etc/sudoers.d/dnsmasq-gui
+    sudo dos2unix /etc/sudoers.d/dnsmasq-gui 2>/dev/null || true
     sudo chmod 440 /etc/sudoers.d/dnsmasq-gui
+    
+    # Validate the sudoers file syntax
+    if sudo visudo -c -f /etc/sudoers.d/dnsmasq-gui; then
+        echo "✅ Sudoers configuration is valid and installed"
+        echo "📋 Permissions granted to 'dnsmasq-gui' user:"
+        echo "   - systemctl restart dnsmasq (NOPASSWD)"
+        echo "   - systemctl reload dnsmasq (NOPASSWD)"
+        echo "   - systemctl status dnsmasq (NOPASSWD)"
+        
+        # Test the sudoers permissions
+        echo "🧪 Testing sudoers permissions..."
+        if sudo -u dnsmasq-gui sudo -n systemctl status dnsmasq >/dev/null 2>&1; then
+            echo "✅ Sudoers permissions test PASSED"
+        else
+            echo "⚠️  Sudoers permissions test FAILED - may need manual intervention"
+        fi
+    else
+        echo "❌ Error: Invalid sudoers configuration!"
+        echo "📋 Sudoers file content:"
+        sudo cat /etc/sudoers.d/dnsmasq-gui
+        echo "📋 Removing invalid sudoers file..."
+        sudo rm -f /etc/sudoers.d/dnsmasq-gui
+        echo "⚠️  DNSmasq restart/reload functionality will require manual intervention"
+    fi
     
     # Create restart/reload scripts that work with NoNewPrivileges
     sudo tee /usr/local/bin/dnsmasq-restart > /dev/null << 'RESTART_SCRIPT'

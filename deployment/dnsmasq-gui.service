@@ -30,8 +30,8 @@ Environment=DNSMASQ_RANGES_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-ranges.conf
 Environment=DNSMASQ_OPTIONS_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-options.conf
 Environment=DNSMASQ_ADVANCED_CONFIG_FILE=/etc/dnsmasq.d/dnsmasq-advanced.conf
 
-# Security settings (relaxed for file access)
-NoNewPrivileges=true
+# Security settings (relaxed for file access and sudo operations)
+NoNewPrivileges=false
 PrivateTmp=false
 ProtectSystem=false
 ProtectHome=false
