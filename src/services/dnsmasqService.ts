@@ -495,6 +495,10 @@ export class DnsmasqService {
         console.log(`CNAME config file not found: ${cnameConfigPath}`);
         return [];
       }
+
+      // Get the current domain name for processing
+      const currentConfig = await this.getConfig();
+      const localDomain = currentConfig.domainName;
       
       const content = await fs.readFile(cnameConfigPath, 'utf-8');
       const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
@@ -508,8 +512,14 @@ export class DnsmasqService {
           const cnameValue = trimmedLine.substring('cname='.length);
           const parts = cnameValue.split(',');
           if (parts.length >= 2) {
-            const alias = parts[0].trim();
-            const target = parts[1].trim();
+            let alias = parts[0].trim();
+            let target = parts[1].trim();
+            
+            // Strip local domain from hostnames if present
+            if (localDomain) {
+              alias = this.stripLocalDomain(alias, localDomain);
+              target = this.stripLocalDomain(target, localDomain);
+            }
             
             records.push({
               id: `dns-cname-${records.length}`,
@@ -1655,6 +1665,10 @@ export class DnsmasqService {
 
   private async updateDnsRecordFiles(config: DnsmasqConfig): Promise<void> {
     try {
+      // Get the current domain name for CNAME processing
+      const currentConfig = await this.getConfig();
+      const localDomain = currentConfig.domainName;
+      
       // Separate A records and CNAME records
       const aRecords = config.dnsRecords.filter(r => r.type === 'A');
       const cnameRecords = config.dnsRecords.filter(r => r.type === 'CNAME');
@@ -1680,9 +1694,13 @@ export class DnsmasqService {
         ...cnameRecords.map(r => ({name: r.name, value: r.value})),
         ...aliasRecords
       ];
-      await this.updateCnameRecords(allCnameRecords);
       
-      console.log(`Updated DNS records: ${aRecords.length} A records, ${allCnameRecords.length} CNAME records`);
+      // Apply domain expansion to CNAME records if local domain is configured
+      const processedCnameRecords = this.processCnameRecordsWithDomain(allCnameRecords, localDomain);
+      
+      await this.updateCnameRecords(processedCnameRecords);
+      
+      console.log(`Updated DNS records: ${aRecords.length} A records, ${processedCnameRecords.length} CNAME records`);
       
     } catch (error) {
       console.error('Failed to update DNS record files:', error);
@@ -1737,6 +1755,65 @@ export class DnsmasqService {
       console.error('Failed to update CNAME records:', error);
       throw error;
     }
+  }
+
+  /**
+   * Process CNAME records to append local domain to bare hostnames
+   * @param cnameRecords - Array of CNAME records with name and value
+   * @param localDomain - The local domain to append (e.g., "example.com")
+   * @returns Processed CNAME records with domain expansion applied
+   */
+  private processCnameRecordsWithDomain(
+    cnameRecords: Array<{name: string, value: string}>, 
+    localDomain?: string
+  ): Array<{name: string, value: string}> {
+    if (!localDomain) {
+      // If no local domain is configured, return records as-is
+      return cnameRecords;
+    }
+
+    return cnameRecords.map(record => {
+      let processedName = record.name;
+      let processedValue = record.value;
+
+      // Check if hostname (alias) needs domain expansion
+      // If hostname contains no periods, it's a bare hostname
+      if (!processedName.includes('.')) {
+        processedName = `${processedName}.${localDomain}`;
+      }
+
+      // Check if target hostname needs domain expansion
+      // If target contains no periods, it's a bare hostname
+      if (!processedValue.includes('.')) {
+        processedValue = `${processedValue}.${localDomain}`;
+      }
+
+      return {
+        name: processedName,
+        value: processedValue
+      };
+    });
+  }
+
+  /**
+   * Strip local domain from hostname if it ends with the local domain
+   * @param hostname - The hostname that may have the local domain appended
+   * @param localDomain - The local domain to strip (e.g., "example.com")
+   * @returns Hostname with local domain stripped if present
+   */
+  private stripLocalDomain(hostname: string, localDomain: string): string {
+    if (!localDomain || !hostname) {
+      return hostname;
+    }
+
+    const domainSuffix = `.${localDomain}`;
+    
+    // If hostname ends with the local domain, strip it
+    if (hostname.endsWith(domainSuffix)) {
+      return hostname.substring(0, hostname.length - domainSuffix.length);
+    }
+
+    return hostname;
   }
 
   private isValidIP(ip: string): boolean {
