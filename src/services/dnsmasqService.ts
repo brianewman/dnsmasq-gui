@@ -496,9 +496,8 @@ export class DnsmasqService {
         return [];
       }
 
-      // Get the current domain name for processing
-      const currentConfig = await this.getConfig();
-      const localDomain = currentConfig.domainName;
+      // Load domain name directly from main config to avoid circular dependency
+      const localDomain = await this.loadDomainNameFromMainConfig();
       
       const content = await fs.readFile(cnameConfigPath, 'utf-8');
       const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
@@ -1814,6 +1813,32 @@ export class DnsmasqService {
     }
 
     return hostname;
+  }
+
+  /**
+   * Load domain name directly from main config file to avoid circular dependency
+   */
+  private async loadDomainNameFromMainConfig(): Promise<string | undefined> {
+    try {
+      if (!await fs.pathExists(this.configPath)) {
+        return undefined;
+      }
+      
+      const content = await fs.readFile(this.configPath, 'utf-8');
+      const lines = content.split('\n');
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('domain=')) {
+          return trimmedLine.substring('domain='.length).trim();
+        }
+      }
+      
+      return undefined;
+    } catch (error) {
+      console.error('Failed to load domain name from main config:', error);
+      return undefined;
+    }
   }
 
   private isValidIP(ip: string): boolean {
