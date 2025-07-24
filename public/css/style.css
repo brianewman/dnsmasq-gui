@@ -222,6 +222,63 @@ select.filter-active {
         color: #6c757d !important;
     }
     
+    /* Keep modals with light styling for consistency */
+    .modal-content {
+        background-color: #fff;
+        color: #212529;
+    }
+    
+    .modal-header {
+        background-color: #fff;
+        color: #212529;
+        border-bottom-color: #dee2e6;
+    }
+    
+    .modal-body {
+        background-color: #fff;
+        color: #212529;
+    }
+    
+    .modal-footer {
+        background-color: #fff;
+        color: #212529;
+        border-top-color: #dee2e6;
+    }
+    
+    .modal-title {
+        color: #212529 !important;
+    }
+    
+    .form-label {
+        color: #212529 !important;
+    }
+    
+    .form-control {
+        background-color: #fff;
+        border-color: #ced4da;
+        color: #212529;
+    }
+    
+    .form-control:focus {
+        background-color: #fff;
+        border-color: #86b7fe;
+        color: #212529;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .form-select {
+        background-color: #fff;
+        border-color: #ced4da;
+        color: #212529;
+    }
+    
+    .form-select:focus {
+        background-color: #fff;
+        border-color: #86b7fe;
+        color: #212529;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
     .table th {
         background-color: #495057;
         color: #fff;
