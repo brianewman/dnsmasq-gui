@@ -1864,6 +1864,15 @@ class DnsmasqGUI {
     async loadDnsConfig() {
         console.log('Loading DNS configuration...');
         try {
+            // Load reservations first if not already loaded to ensure MAC address data is available
+            const hadReservations = this.currentReservations && this.currentReservations.length > 0;
+            if (!hadReservations) {
+                console.log('Loading reservations for DNS record MAC address correlation...');
+                await this.loadReservations();
+                // Give a small delay to ensure backend processes are complete
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
             const response = await this.apiCall('/dnsmasq/config');
             console.log('DNS config response:', response);
             
@@ -1923,7 +1932,18 @@ class DnsmasqGUI {
         records.forEach(record => {
             const aliases = record.aliases && record.aliases.length > 0 ? 
                 record.aliases.join(', ') : '<span class="text-muted">-</span>';
-            const macAddress = record.macAddress || '<span class="text-muted">-</span>';
+            
+            // Make MAC address clickable if it exists
+            let macAddress;
+            if (record.macAddress) {
+                macAddress = `<a href="#" class="text-decoration-none" 
+                    onclick="app.navigateToReservationsWithMac('${record.macAddress}')" 
+                    title="View DHCP reservation for ${record.macAddress}">
+                    <code class="text-primary">${record.macAddress}</code>
+                </a>`;
+            } else {
+                macAddress = '<span class="text-muted">-</span>';
+            }
             
             html += `
                 <tr>
