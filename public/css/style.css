@@ -205,8 +205,21 @@ select.filter-active {
     }
     
     .card {
-        background-color: #343a40;
-        border-color: #495057;
+        background-color: #495057;
+        border-color: #6c757d;
+        color: #fff;
+    }
+    
+    .card-body {
+        color: #fff;
+    }
+    
+    .card-title {
+        color: #fff !important;
+    }
+    
+    .card-text {
+        color: #e9ecef !important;
     }
     
     .table th {
