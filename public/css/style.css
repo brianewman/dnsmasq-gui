@@ -205,21 +205,21 @@ select.filter-active {
     }
     
     .card {
-        background-color: #495057;
-        border-color: #6c757d;
-        color: #fff;
+        background-color: #fff;
+        border-color: #dee2e6;
+        color: #212529;
     }
     
     .card-body {
-        color: #fff;
+        color: #212529;
     }
     
     .card-title {
-        color: #fff !important;
+        color: #212529 !important;
     }
     
     .card-text {
-        color: #e9ecef !important;
+        color: #6c757d !important;
     }
     
     .table th {
