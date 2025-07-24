@@ -275,9 +275,16 @@ class DnsmasqGUI {
         this.showSection('leases');
     }
     
-    initSortingListeners() {
+    initSortingListeners(tableSelector = null) {
         // Add click listeners to sortable table headers
-        document.querySelectorAll('.sortable').forEach(header => {
+        const selector = tableSelector ? `${tableSelector} .sortable` : '.sortable';
+        document.querySelectorAll(selector).forEach(header => {
+            // Remove any existing click listeners to prevent duplicates
+            header.replaceWith(header.cloneNode(true));
+        });
+        
+        // Re-select elements after cloning to remove old listeners
+        document.querySelectorAll(selector).forEach(header => {
             header.addEventListener('click', (e) => {
                 const column = e.target.closest('.sortable').dataset.sort;
                 const table = e.target.closest('table');
@@ -1974,8 +1981,8 @@ class DnsmasqGUI {
 
         container.innerHTML = html;
         
-        // Reinitialize sorting listeners for the new table
-        this.initSortingListeners();
+        // Reinitialize sorting listeners for the DNS records table only
+        this.initSortingListeners('#dns-records-table');
         
         console.log(`Displayed ${records.length} DNS records`);
     }
