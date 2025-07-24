@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { config } from '../config/config';
 import { AuthRequest, AuthResponse } from '../types/auth';
-import { ApiResponse, ExpressHandler } from '../types/express';
+import { ApiResponse, ExpressHandler, AuthenticatedRequest } from '../types/express';
 import { authMiddleware } from '../middleware/auth';
 
 export const authRoutes = Router();
@@ -82,9 +82,11 @@ const login: ExpressHandler = async (req, res) => {
 
 const verifyToken: ExpressHandler = (req, res) => {
   // This endpoint is protected by authMiddleware
+  const authenticatedReq = req as AuthenticatedRequest;
   res.json({
     success: true,
-    message: 'Token is valid'
+    message: 'Token is valid',
+    user: authenticatedReq.user
   } as ApiResponse);
 };
 

@@ -1740,7 +1740,7 @@ class DnsmasqGUI {
                 }
                 
                 // Show main content
-                const mainContent = document.querySelector('.container-fluid');
+                const mainContent = document.querySelector('.container-fluid.mt-3');
                 if (mainContent) {
                     mainContent.style.display = 'block';
                 }
@@ -1766,7 +1766,7 @@ class DnsmasqGUI {
 
     showLoginModal() {
         // Hide main content
-        const mainContent = document.querySelector('.container-fluid');
+        const mainContent = document.querySelector('.container-fluid.mt-3');
         if (mainContent) {
             mainContent.style.display = 'none';
         }
@@ -1817,6 +1817,12 @@ class DnsmasqGUI {
             console.log('Verifying token...');
             const response = await this.apiCall('/auth/verify');
             console.log('Verify response:', response);
+            
+            if (response.success && response.user) {
+                // Set the username display
+                document.getElementById('username-display').textContent = response.user.username;
+            }
+            
             return response.success;
         } catch (error) {
             console.log('Token verification failed:', error);
