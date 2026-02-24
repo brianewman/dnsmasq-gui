@@ -36,13 +36,13 @@
                     <span id="banner-message">Reload the DNSmasq service to apply recent configuration changes.</span>
                 </div>
                 <div class="col-auto">
-                    <button id="banner-reload-btn" class="btn btn-success btn-sm me-2">
-                        <i class="bi bi-arrow-repeat"></i> Reload Service
-                    </button>
-                    <button id="banner-restart-btn" class="btn btn-outline-light btn-sm me-2">
+                    <button id="banner-restart-btn" class="btn btn-success btn-sm me-2">
                         <i class="bi bi-arrow-clockwise"></i> Restart Service
                     </button>
-                    <button id="banner-dismiss-btn" class="btn btn-outline-light btn-sm">
+                    <button id="banner-reload-btn" class="btn btn-warning btn-sm me-2">
+                        <i class="bi bi-arrow-repeat"></i> Reload Service
+                    </button>
+                    <button id="banner-dismiss-btn" class="btn btn-secondary btn-sm">
                         <i class="bi bi-x"></i> Dismiss
                     </button>
                 </div>
@@ -100,11 +100,11 @@
                                         <i class="bi bi-clock"></i> Uptime: <span id="uptime-value">--</span>
                                     </small>
                                     <div class="mt-2">
-                                        <button id="reload-service-btn" class="btn btn-sm btn-outline-success me-2">
-                                            <i class="bi bi-arrow-repeat"></i> Reload
-                                        </button>
-                                        <button id="restart-service-btn" class="btn btn-sm btn-outline-primary">
+                                        <button id="restart-service-btn" class="btn btn-sm btn-success me-2">
                                             <i class="bi bi-arrow-clockwise"></i> Restart
+                                        </button>
+                                        <button id="reload-service-btn" class="btn btn-sm btn-warning">
+                                            <i class="bi bi-arrow-repeat"></i> Reload
                                         </button>
                                     </div>
                                 </div>
