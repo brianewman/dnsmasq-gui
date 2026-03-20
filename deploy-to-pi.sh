@@ -7,7 +7,7 @@ set -e
 # Configuration
 PI_HOST=${1:-raspberrypi.local}
 SSH_USER=${2:-pi}
-REPO_URL="https://github.com/brianewman/dnsmasq-gui.git"
+REPO_URL="https://gitea.voicelab.xyz/brian/dnsmasq-gui.git"
 APP_DIR="/opt/dnsmasq-gui"
 SERVICE_NAME="dnsmasq-gui"
 

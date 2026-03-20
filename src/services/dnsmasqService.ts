@@ -271,6 +271,14 @@ export class DnsmasqService {
           advancedSettings.domainName = trimmedLine.split('=')[1];
         }
         
+        // Parse address=/<domain>/<ip> for default domain IP
+        if (trimmedLine.startsWith('address=/')) {
+          const parts = trimmedLine.split('/');
+          if (parts.length >= 3) {
+            advancedSettings.defaultIpAddress = parts[2];
+          }
+        }
+        
         // Parse boolean settings
         if (trimmedLine === 'expand-hosts') {
           advancedSettings.expandHosts = true;
@@ -650,6 +658,10 @@ export class DnsmasqService {
       // General Settings
       if (newConfig.domainName) {
         configLines.push(`domain=${newConfig.domainName}`);
+      }
+      
+      if (newConfig.domainName && newConfig.defaultIpAddress) {
+        configLines.push(`address=/${newConfig.domainName}/${newConfig.defaultIpAddress}`);
       }
       
       if (newConfig.expandHosts) {

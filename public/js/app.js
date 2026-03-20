@@ -2029,6 +2029,14 @@ class DnsmasqGUI {
                 console.error('Could not find domain-name element');
             }
             
+            const defaultIpElement = document.getElementById('default-ip-address');
+            if (defaultIpElement) {
+                defaultIpElement.value = config.defaultIpAddress || '';
+                console.log('Set default-ip-address to:', config.defaultIpAddress || '');
+            } else {
+                console.error('Could not find default-ip-address element');
+            }
+            
             const expandElement = document.getElementById('expand-hosts');
             if (expandElement) {
                 expandElement.checked = config.expandHosts || false;
@@ -2111,6 +2119,7 @@ class DnsmasqGUI {
                 
                 // General Settings
                 domainName: document.getElementById('domain-name').value.trim(),
+                defaultIpAddress: document.getElementById('default-ip-address').value.trim(),
                 expandHosts: document.getElementById('expand-hosts').checked,
                 cacheSize: parseInt(document.getElementById('cache-size').value) || 150,
                 negTtl: parseInt(document.getElementById('neg-ttl').value) || 3600,

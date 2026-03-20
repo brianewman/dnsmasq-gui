@@ -50,6 +50,7 @@ export interface NetworkInterface {
 export interface DnsmasqConfig {
   // Basic settings
   domainName?: string;
+  defaultIpAddress?: string;
   expandHosts: boolean;
   noDaemon: boolean;
   noHosts: boolean;
