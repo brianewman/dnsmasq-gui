@@ -42,7 +42,21 @@ node --version
 npm --version
 ```
 
-#### 3. Install DNSmasq
+#### 3. NTP (Network Time Protocol) Setup
+```bash
+# Install chrony
+sudo apt install -y chrony
+
+# Configure chrony to allow local network to sync from it
+# Edit /etc/chrony/chrony.conf and add:
+# allow 192.168.1.0/24 (replace with your network)
+
+# Restart chrony
+sudo systemctl restart chrony
+sudo systemctl enable chrony
+```
+
+#### 4. Install DNSmasq
 ```bash
 sudo apt install -y dnsmasq
 ```
@@ -75,7 +89,15 @@ sudo chmod 644 /var/lib/dhcp/dhcpd.leases
 sudo ufw allow 3000/tcp comment "DNSmasq GUI"
 sudo ufw allow 53/udp comment "DNS"
 sudo ufw allow 67/udp comment "DHCP"
+sudo ufw allow 123/udp comment "NTP"
 ```
+
+## DHCP Options for NTP
+
+To ensure your local devices automatically use the Raspberry Pi as their NTP server, you can add DHCP Option 42 to your `dnsmasq` configuration.
+
+In the GUI or in your configuration files, add:
+`dhcp-option=option:ntp-server,0.0.0.0` (using `0.0.0.0` refers to the Pi's own IP address)
 
 ## Security Considerations
 

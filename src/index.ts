@@ -3,6 +3,7 @@ import cors from 'cors';
 import { config } from './config/config';
 import { authRoutes } from './routes/auth';
 import { dnsmasqRoutes } from './routes/dnsmasq';
+import { ntpRoutes } from './routes/ntp';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 
@@ -33,6 +34,7 @@ app.use('/api/dnsmasq', (req, res, next) => {
 });
 
 app.use('/api/dnsmasq', authMiddleware, dnsmasqRoutes);
+app.use('/api/ntp', authMiddleware, ntpRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -40,6 +42,6 @@ app.use(errorHandler);
 // Start server
 const PORT = config.port || 3000;
 app.listen(PORT, () => {
-  console.log(`DNSmasq GUI server running on port ${PORT}`);
+  console.log(`Keystone server running on port ${PORT}`);
   console.log(`Environment: ${config.nodeEnv}`);
 });

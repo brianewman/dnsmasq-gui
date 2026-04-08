@@ -71,6 +71,7 @@ class DnsmasqGUI {
         this.currentOptions = [];
         this.allOptions = []; // Backup of all options for filtering
         this.currentDnsRecords = [];
+        this.currentNtpConfig = { enabled: false, servers: [], allowSubnets: [] };
         
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
@@ -581,6 +582,9 @@ class DnsmasqGUI {
             case 'settings':
                 // Add a slight delay to ensure the section is fully rendered
                 setTimeout(() => this.loadAdvancedSettings(), 100);
+                break;
+            case 'ntp':
+                this.loadNtpSettings();
                 break;
         }
     }
@@ -4205,6 +4209,150 @@ class DnsmasqGUI {
             alert('Network error occurred while deleting option');
         }
     }
+
+    async loadNtpSettings() {
+        const containers = {
+            servers: document.getElementById('ntp-servers-container'),
+            subnets: document.getElementById('ntp-subnets-container'),
+            statusText: document.getElementById('ntp-status-text'),
+            syncText: document.getElementById('ntp-sync-text'),
+            sourceText: document.getElementById('ntp-source-text'),
+            badge: document.getElementById('ntp-status-badge')
+        };
+
+        try {
+            // Load config and status in parallel
+            const [configRes, statusRes] = await Promise.all([
+                fetch('/api/ntp/config', { headers: { 'Authorization': `Bearer ${this.token}` } }).then(r => r.json()),
+                fetch('/api/ntp/status', { headers: { 'Authorization': `Bearer ${this.token}` } }).then(r => r.json())
+            ]);
+
+            if (configRes.success) {
+                this.currentNtpConfig = configRes.data;
+                this.renderNtpSettings(this.currentNtpConfig);
+            }
+
+            if (statusRes.success) {
+                this.updateNtpStatus(statusRes.data);
+            }
+        } catch (error) {
+            console.error('Failed to load NTP settings:', error);
+        }
+    }
+
+    updateNtpStatus(status) {
+        const statusText = document.getElementById('ntp-status-text');
+        const syncText = document.getElementById('ntp-sync-text');
+        const sourceText = document.getElementById('ntp-source-text');
+        const badgeContainer = document.getElementById('ntp-status-badge');
+
+        if (!status) return;
+
+        const isRunning = status.active === true;
+        const isSynced = status.synchronized;
+
+        statusText.innerHTML = isRunning ? 
+            '<span class="text-success"><i class="bi bi-check-circle-fill"></i> Running</span>' : 
+            '<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Stopped</span>';
+        
+        syncText.innerHTML = isSynced ? 
+            '<span class="text-success">Synchronized</span>' : 
+            '<span class="text-warning">Unsynchronized</span>';
+
+        sourceText.textContent = status.source || 'None';
+
+        badgeContainer.innerHTML = isRunning && isSynced ? 
+            '<span class="badge bg-success">Active & Synced</span>' : 
+            (isRunning ? '<span class="badge bg-warning text-dark">Active (Syncing...)</span>' : '<span class="badge bg-danger">Service Down</span>');
+    }
+
+    renderNtpSettings(config) {
+        document.getElementById('ntp-enabled-switch').checked = config.enabled;
+        
+        // Render servers
+        const serversContainer = document.getElementById('ntp-servers-container');
+        serversContainer.innerHTML = '';
+        config.servers.forEach((server, index) => this.addNtpServerUI(server, index));
+
+        // Render subnets
+        const subnetsContainer = document.getElementById('ntp-subnets-container');
+        subnetsContainer.innerHTML = '';
+        config.allowSubnets.forEach((subnet, index) => this.addNtpSubnetUI(subnet, index));
+    }
+
+    addNtpServer(value = '') {
+        const index = document.querySelectorAll('.ntp-server-input').length;
+        this.addNtpServerUI(value, index);
+    }
+
+    addNtpServerUI(value, index) {
+        const container = document.getElementById('ntp-servers-container');
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2 ntp-server-row';
+        div.innerHTML = `
+            <span class="input-group-text"><i class="bi bi-server"></i></span>
+            <input type="text" class="form-control ntp-server-input" value="${value}" placeholder="pool.ntp.org">
+            <button class="btn btn-outline-danger" type="button" onclick="this.closest('.ntp-server-row').remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        container.appendChild(div);
+    }
+
+    addNtpSubnet(value = '') {
+        const index = document.querySelectorAll('.ntp-subnet-input').length;
+        this.addNtpSubnetUI(value, index);
+    }
+
+    addNtpSubnetUI(value, index) {
+        const container = document.getElementById('ntp-subnets-container');
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2 ntp-subnet-row';
+        div.innerHTML = `
+            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+            <input type="text" class="form-control ntp-subnet-input" value="${value}" placeholder="192.168.1.0/24">
+            <button class="btn btn-outline-danger" type="button" onclick="this.closest('.ntp-subnet-row').remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        container.appendChild(div);
+    }
+
+    async saveNtpSettings() {
+        const saveBtn = document.getElementById('save-ntp-btn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Applying...';
+
+        const enabled = document.getElementById('ntp-enabled-switch').checked;
+        const servers = Array.from(document.querySelectorAll('.ntp-server-input')).map(i => i.value.trim()).filter(v => v);
+        const allowSubnets = Array.from(document.querySelectorAll('.ntp-subnet-input')).map(i => i.value.trim()).filter(v => v);
+
+        try {
+            const response = await fetch('/api/ntp/config', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ enabled, servers, allowSubnets })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('NTP settings applied successfully!');
+                this.loadNtpSettings();
+            } else {
+                alert(`Error: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Save NTP failed:', error);
+            alert('Failed to save NTP settings due to a network error.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -4298,6 +4446,8 @@ function enableAutoRefresh() {
                     app.loadRanges();
                 } else if (sectionId === 'options-section') {
                     app.loadOptions();
+                } else if (sectionId === 'ntp-section') {
+                    app.loadNtpSettings();
                 }
             }
         }

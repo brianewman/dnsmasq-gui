@@ -28,8 +28,8 @@ fi
 echo "✅ Node.js version: $(node --version)"
 echo "✅ npm version: $(npm --version)"
 
-# Install system dependencies
-echo "🔧 Installing system dependencies..."
+# Install system dependencies and NTP
+echo "🔧 Installing system dependencies and NTP..."
 sudo apt install -y \
     curl \
     wget \
@@ -37,16 +37,24 @@ sudo apt install -y \
     tar \
     gzip \
     systemd \
-    sudo
+    sudo \
+    chrony
 
-# Ensure dnsmasq is installed
-echo "🌐 Checking DNSmasq installation..."
-if ! command -v dnsmasq &> /dev/null; then
-    echo "Installing DNSmasq..."
-    sudo apt install -y dnsmasq
-else
-    echo "✅ DNSmasq is already installed: $(dnsmasq --version | head -1)"
-fi
+# Install and configure NTP (Chrony)
+echo "🕒 Configuring NTP (Chrony)..."
+sudo systemctl enable chrony
+sudo systemctl start chrony
+# Allow the local subnet (this script assumes a typical /24 network for now)
+echo "allow 192.168.0.0/16" | sudo tee -a /etc/chrony/chrony.conf > /dev/null
+echo "allow 10.0.0.0/8" | sudo tee -a /etc/chrony/chrony.conf > /dev/null
+echo "allow 172.16.0.0/12" | sudo tee -a /etc/chrony/chrony.conf > /dev/null
+sudo systemctl restart chrony
+
+# Ensure dnsmasq daemon package is installed
+# (Sometimes only dnsmasq-base is installed as a dependency, which lacks the service and config files)
+echo "🌐 Ensuring the full DNSmasq package is installed..."
+sudo apt install -y dnsmasq
+echo "✅ DNSmasq version: $(dnsmasq --version | head -1)"
 
 # Stop dnsmasq for now (will be managed by systemd)
 echo "⏸️ Stopping DNSmasq service..."
@@ -61,6 +69,7 @@ sudo mkdir -p /var/log
 
 # Set up proper permissions for dnsmasq files
 echo "🔒 Setting up file permissions..."
+sudo touch /etc/dnsmasq.conf
 sudo chown root:root /etc/dnsmasq.conf
 sudo chmod 644 /etc/dnsmasq.conf
 
@@ -93,6 +102,7 @@ if systemctl is-active --quiet ufw; then
     sudo ufw allow 3000/tcp comment "DNSmasq GUI"
     sudo ufw allow 53/udp comment "DNS"
     sudo ufw allow 67/udp comment "DHCP"
+    sudo ufw allow 123/udp comment "NTP"
 else
     echo "UFW is not active, skipping firewall configuration"
 fi

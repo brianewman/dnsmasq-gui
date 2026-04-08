@@ -1,7 +1,7 @@
 {
-  "name": "dnsmasq-gui",
+  "name": "keystone",
   "version": "1.0.0",
-  "description": "A web-based GUI for managing dnsmasq configuration on Raspberry Pi",
+  "description": "The central network appliance for DNS, DHCP, and NTP. (Formerly dnsmasq-gui)",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -24,7 +24,7 @@
     "fs-extra": "^11.3.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

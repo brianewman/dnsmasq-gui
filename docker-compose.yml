@@ -1,0 +1,24 @@
+services:
+  # Keystone - DNS, DHCP, and NTP Appliance
+  keystone:
+    build: .
+    container_name: keystone
+    restart: always
+    network_mode: host # REQUIRED for DHCP/DNS/NTP to reach local network
+    privileged: true   # REQUIRED for raw socket access (DHCP/NTP clock)
+    cap_add:
+      - SYS_TIME
+    volumes:
+      # Data persistence for DNS, DHCP, and NTP
+      - ./data:/app/data
+      - ./configs/dnsmasq.conf:/etc/dnsmasq.conf
+      - ./configs/dnsmasq.d:/etc/dnsmasq.d
+      - ./configs/hosts:/etc/dnsmasq.hosts
+      - ./configs/chrony.conf:/etc/chrony/chrony.conf
+      - ./logs:/var/log/dnsmasq-gui
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DNS_FILE=/etc/dnsmasq.hosts
+      - CONFIG_DIR=/etc/dnsmasq.d
+      - NTP_CONFIG_FILE=/etc/chrony/chrony.conf

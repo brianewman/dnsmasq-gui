@@ -5,11 +5,29 @@ set -e
 
 echo "🚀 Deploying DNSmasq GUI to Raspberry Pi..."
 
-# Configuration
+# Configuration defaults
 PI_USER="pi"
-PI_HOST="192.168.10.3"
+PI_HOST=""
 APP_DIR="/opt/dnsmasq-gui"
 SERVICE_NAME="dnsmasq-gui"
+UPDATE_ONLY=0
+
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --host) PI_HOST="$2"; shift ;;
+        --user) PI_USER="$2"; shift ;;
+        --update-only) UPDATE_ONLY=1 ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Verify required host is set
+if [ -z "$PI_HOST" ]; then
+    echo "❌ Error: Target IP address or hostname is required via --host argument."
+    exit 1
+fi
 
 # Build the application
 echo "📦 Building application..."
@@ -94,7 +112,7 @@ else
 fi
 
 # Check if this is an update-only deployment
-if [ "$1" == "--update-only" ]; then
+if [ "$UPDATE_ONLY" == "1" ]; then
     echo "🔄 Performing update-only deployment..."
     
     # Create a minimal package for update
@@ -188,6 +206,11 @@ ssh -o ConnectTimeout=30 $BATCH_MODE ${PI_USER}@${PI_HOST} << 'EOF'
 
     # Extract application
     sudo tar -xzf /tmp/dnsmasq-gui.tar.gz -C /opt/dnsmasq-gui --strip-components=0
+
+    # Ensure all scripts have Unix line endings (fixes issues when deploying from Windows)
+    echo "🧹 Cleaning line endings in deployment scripts..."
+    sudo find /opt/dnsmasq-gui/deployment/ -name "*.sh" -exec sed -i 's/\r//' {} +
+    sudo sed -i 's/\r//' /opt/dnsmasq-gui/deployment/dnsmasq-gui-sudoers
 
     # Install dependencies (skip if node_modules exists and package-lock.json hasn't changed)
     echo "📦 Installing dependencies..."
