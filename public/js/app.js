@@ -299,6 +299,22 @@ class DnsmasqGUI {
                 this.showSection('reservations');
             });
         }
+
+        // dnsmasq Service card - navigate to Settings
+        const dnsmasqServiceCard = document.getElementById('dnsmasq-service-card');
+        if (dnsmasqServiceCard) {
+            dnsmasqServiceCard.addEventListener('click', () => {
+                this.showSection('settings');
+            });
+        }
+
+        // NTP Service card - navigate to NTP section
+        const ntpStatusCard = document.getElementById('ntp-status-card');
+        if (ntpStatusCard) {
+            ntpStatusCard.addEventListener('click', () => {
+                this.showSection('ntp');
+            });
+        }
     }
     
     navigateToLeases(sortColumn, sortDirection) {
@@ -666,6 +682,9 @@ class DnsmasqGUI {
             const configResponse = await this.apiCall('/dnsmasq/config');
             this.updateConfigInfo(configResponse);
 
+            // Load NTP status for dashboard
+            await this.loadNtpDashboardInfo();
+
         } catch (error) {
             console.error('Failed to load dashboard:', error);
             this.showDashboardError();
@@ -708,6 +727,64 @@ class DnsmasqGUI {
             `;
             uptimeElement.style.display = 'none';
         }
+    }
+
+    async loadNtpDashboardInfo() {
+        try {
+            const response = await fetch('/api/ntp/status', {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateNtpDashboardCard(result.data);
+            } else {
+                this.showNtpDashboardError();
+            }
+        } catch (error) {
+            console.error('Failed to load NTP dashboard info:', error);
+            this.showNtpDashboardError();
+        }
+    }
+
+    updateNtpDashboardCard(status) {
+        const serviceBadge = document.getElementById('ntp-dash-service');
+        const syncBadge = document.getElementById('ntp-dash-sync');
+        const sourceText = document.getElementById('ntp-dash-source');
+
+        if (!status) return;
+
+        // Service Status
+        if (serviceBadge) {
+            const isRunning = status.active === true;
+            serviceBadge.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+            serviceBadge.className = `badge ${isRunning ? 'bg-success' : 'bg-danger'}`;
+        }
+
+        // Sync Status
+        if (syncBadge) {
+            const isSynced = status.synchronized === true;
+            syncBadge.textContent = isSynced ? 'SYNCED' : 'SEARCHING';
+            syncBadge.className = `badge ${isSynced ? 'bg-info text-dark' : 'bg-warning text-dark'}`;
+        }
+
+        // Source
+        if (sourceText) {
+            sourceText.textContent = status.source || 'None';
+            sourceText.title = status.source || 'None';
+        }
+    }
+
+    showNtpDashboardError() {
+        ['ntp-dash-service', 'ntp-dash-sync'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = 'ERROR';
+                el.className = 'badge bg-danger';
+            }
+        });
+        const source = document.getElementById('ntp-dash-source');
+        if (source) source.textContent = '-';
     }
 
     updateLeaseCounts(leasesResponse) {
