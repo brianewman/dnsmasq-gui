@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keystone - Network Management</title>
+    <title>Keystone LAN Services</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,10 @@
         <aside id="sidebar-container">
             <div class="sidebar-logo-container">
                 <img src="img/logo.png" alt="Keystone Logo" class="sidebar-logo">
-                <span class="logo-text">KEYSTONE</span>
+                <div class="logo-text-group">
+                    <span class="logo-text-primary">KEYSTONE</span>
+                    <span class="logo-text-secondary">LAN Services</span>
+                </div>
             </div>
             
             <nav class="sidebar-nav">
@@ -95,13 +98,15 @@
                         <div class="col-md-4">
                             <div class="card stat-card h-100" id="active-leases-card" style="cursor: pointer;">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between mb-3">
-                                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                                            <i class="bi bi-broadcast"></i>
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                                                <i class="bi bi-broadcast"></i>
+                                            </div>
+                                            <h5 class="text-muted small-caps mb-0">Active Leases</h5>
                                         </div>
                                         <span class="badge bg-primary bg-opacity-10 text-primary" id="leases-count">0</span>
                                     </div>
-                                    <h6 class="text-muted small-caps mb-2">Active Leases</h6>
                                     <div id="active-leases-count">
                                         <div class="h3 mb-0">0</div>
                                     </div>
@@ -111,12 +116,14 @@
                         <div class="col-md-4">
                             <div class="card stat-card h-100" id="static-leases-card" style="cursor: pointer;">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between mb-3">
-                                        <div class="stat-icon bg-success bg-opacity-10 text-success">
-                                            <i class="bi bi-bookmark-check"></i>
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                                                <i class="bi bi-bookmark-check"></i>
+                                            </div>
+                                            <h5 class="text-muted small-caps mb-0">Static Reservations</h5>
                                         </div>
                                     </div>
-                                    <h6 class="text-muted small-caps mb-2">Static Reservations</h6>
                                     <div id="static-leases-count">
                                         <div class="h3 mb-0">0</div>
                                     </div>
@@ -126,12 +133,14 @@
                         <div class="col-md-4">
                             <div class="card stat-card h-100">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between mb-3">
-                                        <div class="stat-icon bg-info bg-opacity-10 text-info">
-                                            <i class="bi bi-cpu"></i>
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+                                                <i class="bi bi-cpu"></i>
+                                            </div>
+                                            <h5 class="text-muted small-caps mb-0">Service Status</h5>
                                         </div>
                                     </div>
-                                    <h6 class="text-muted small-caps mb-2">Service Status</h6>
                                     <div id="service-status">
                                         <div class="h3 mb-0 text-muted">Unknown</div>
                                     </div>
@@ -679,7 +688,7 @@
             <div class="modal-content login-modal-content border-0">
                 <div class="modal-body p-5 text-center">
                     <img src="img/logo.png" alt="Keystone Logo" class="login-logo-large">
-                    <h2 class="mb-4">Welcome to Keystone</h2>
+                    <h2 class="mb-4">Welcome to Keystone LAN Services</h2>
                     <p class="text-muted mb-4">Please authenticate to manage your network.</p>
                     <form id="login-form">
                         <div class="mb-3 text-start">

@@ -79,16 +79,34 @@ body.sidebar-collapsed .sidebar-logo {
     margin-bottom: 0;
 }
 
-.logo-text {
-    font-size: 0.9rem;
+.logo-text-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: opacity var(--transition-speed);
+    text-align: center;
+}
+
+.logo-text-primary {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: 2px;
     color: var(--ks-accent);
-    opacity: 1;
-    transition: opacity var(--transition-speed);
+    line-height: 1;
 }
 
-body.sidebar-collapsed .logo-text {
+.logo-text-secondary {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--ks-text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+    opacity: 0.8;
+}
+
+body.sidebar-collapsed .logo-text-group {
     opacity: 0;
     pointer-events: none;
 }
@@ -206,6 +224,23 @@ h2 {
     color: var(--ks-text);
     overflow: hidden;
     margin-bottom: 24px;
+    transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    border-color: var(--ks-accent);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    border-radius: 10px;
 }
 
 .card-header {

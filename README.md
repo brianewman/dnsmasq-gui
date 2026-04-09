@@ -1,4 +1,4 @@
-# Keystone
+# Keystone LAN Services
 
 A modern web-based graphical user interface for managing DNSmasq configuration on Raspberry Pi and other Linux systems.
 

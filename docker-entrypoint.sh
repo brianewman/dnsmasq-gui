@@ -2,7 +2,7 @@
 
 # Clean up function
 cleanup() {
-    echo "🛑 Shutting down Keystone services..."
+    echo "🛑 Shutting down Keystone LAN Services..."
     [ -n "$DNSMASQ_PID" ] && kill $DNSMASQ_PID
     [ -n "$GUI_PID" ] && kill $GUI_PID
     # Use pkill for chrony since it might have changed PIDs
@@ -19,7 +19,7 @@ dnsmasq --keep-in-foreground &
 DNSMASQ_PID=$!
 
 # Start the Node.js GUI
-echo "🚀 Starting Keystone GUI..."
+echo "🚀 Starting Keystone LAN Services..."
 node dist/index.js &
 GUI_PID=$!
 

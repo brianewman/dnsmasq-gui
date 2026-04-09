@@ -1,5 +1,5 @@
 services:
-  # Keystone - DNS, DHCP, and NTP Appliance
+  # Keystone LAN Services - DNS, DHCP, and NTP Appliance
   keystone:
     build: .
     container_name: keystone

@@ -1,7 +1,7 @@
 {
   "name": "keystone",
   "version": "1.0.0",
-  "description": "The central network appliance for DNS, DHCP, and NTP. (Formerly dnsmasq-gui)",
+  "description": "Keystone LAN Services - The central network appliance for DNS, DHCP, and NTP.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

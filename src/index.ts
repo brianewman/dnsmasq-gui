@@ -42,6 +42,6 @@ app.use(errorHandler);
 // Start server
 const PORT = config.port || 3000;
 app.listen(PORT, () => {
-  console.log(`Keystone server running on port ${PORT}`);
+  console.log(`Keystone LAN Services running on port ${PORT}`);
   console.log(`Environment: ${config.nodeEnv}`);
 });
