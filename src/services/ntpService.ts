@@ -74,7 +74,7 @@ export class NtpService {
         // 'Leap status' is 'Normal' when synced
         synchronized = stdout.includes('Leap status     : Normal');
         
-        const sourceRes = await execAsync('chronyc sources');
+        const sourceRes = await execAsync('chronyc -N sources');
         const lines = sourceRes.stdout.split('\n');
         const syncLine = lines.find(l => l.startsWith('^*'));
         if (syncLine) {
