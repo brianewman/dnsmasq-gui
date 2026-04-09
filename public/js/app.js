@@ -73,6 +73,9 @@ class DnsmasqGUI {
         this.currentDnsRecords = [];
         this.currentNtpConfig = { enabled: false, servers: [], allowSubnets: [] };
         
+        // Sidebar state
+        this.sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        
         // Don't call init automatically, let the DOMContentLoaded handler control this
     }
 
@@ -94,8 +97,23 @@ class DnsmasqGUI {
         }
         
         console.log('Authentication successful, loading dashboard');
+        this.applySidebarState();
         this.initEventListeners();
         this.loadDashboard();
+    }
+
+    applySidebarState() {
+        if (this.sidebarCollapsed) {
+            document.body.classList.add('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('sidebar-collapsed');
+        }
+    }
+
+    toggleSidebar() {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
+        this.applySidebarState();
     }
 
     initEventListeners() {
@@ -105,10 +123,26 @@ class DnsmasqGUI {
         document.querySelectorAll('[data-section]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const section = e.target.closest('[data-section]').dataset.section;
+                const linkElement = e.target.closest('[data-section]');
+                const section = linkElement.dataset.section;
                 this.showSection(section);
             });
         });
+
+        // Sidebar toggle
+        const toggleBtn = document.getElementById('toggle-sidebar');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggleSidebar());
+        }
+
+        // Sidebar logout
+        const sidebarLogout = document.getElementById('sidebar-logout');
+        if (sidebarLogout) {
+            sidebarLogout.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.logout();
+            });
+        }
 
         // Login form
         const loginForm = document.getElementById('login-form');
@@ -540,13 +574,26 @@ class DnsmasqGUI {
         });
 
         // Show selected section
-        document.getElementById(`${sectionName}-section`).style.display = 'block';
+        const targetSection = document.getElementById(`${sectionName}-section`);
+        if (targetSection) {
+            targetSection.style.display = 'block';
+        }
 
         // Update sidebar
         document.querySelectorAll('[data-section]').forEach(link => {
             link.classList.remove('active');
         });
-        document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+        const activeLink = document.querySelector(`[data-section="${sectionName}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+            
+            // Update header title
+            const titleElement = document.getElementById('section-title');
+            if (titleElement) {
+                const spanText = activeLink.querySelector('span');
+                titleElement.textContent = spanText ? spanText.textContent : sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+            }
+        }
 
         // Load section data
         switch (sectionName) {
