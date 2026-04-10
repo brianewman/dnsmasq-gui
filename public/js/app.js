@@ -2514,7 +2514,10 @@ class DnsmasqGUI {
             // Apply filters and render
             this.applyReservationFiltersAndRender();
             
-            document.getElementById('reservations-count').textContent = reservationsResult.data.length;
+            const resCount = document.getElementById('reservations-count');
+            if (resCount) {
+                resCount.textContent = reservationsResult.data.length;
+            }
         } catch (error) {
             console.error('Error loading reservations:', error);
             document.getElementById('reservations-table-body').innerHTML = `
