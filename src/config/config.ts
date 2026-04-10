@@ -7,16 +7,16 @@ export const config = {
   
   // DNSmasq specific configuration
   dnsmasq: {
-    configPath: process.env.DNSMASQ_CONFIG_PATH || './dev/dnsmasq.conf',
-    hostsPath: process.env.DNSMASQ_HOSTS_PATH || './dev/hosts',
-    hostsFile: process.env.DNSMASQ_HOSTS_FILE || './dev/dnsmasq.hosts',
-    leasesPath: process.env.DNSMASQ_LEASES_PATH || './dev/dnsmasq.leases',
-    additionalConfigDir: process.env.DNSMASQ_ADDITIONAL_CONFIG_DIR || './dev/dnsmasq.d',
-    rangesConfigFile: process.env.DNSMASQ_RANGES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-ranges.conf',
-    optionsConfigFile: process.env.DNSMASQ_OPTIONS_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-options.conf',
-    staticLeasesConfigFile: process.env.DNSMASQ_STATIC_LEASES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-static-leases.conf',
-    cnamesConfigFile: process.env.DNSMASQ_CNAMES_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-cnames.conf',
-    advancedConfigFile: process.env.DNSMASQ_ADVANCED_CONFIG_FILE || './dev/dnsmasq.d/dnsmasq-advanced.conf',
+    configPath: '/etc/dnsmasq.conf',
+    hostsPath: '/etc/hosts',
+    hostsFile: '/etc/dnsmasq.hosts',
+    leasesPath: '/var/lib/misc/dnsmasq.leases',
+    additionalConfigDir: '/etc/dnsmasq.d',
+    rangesConfigFile: '/etc/dnsmasq.d/dnsmasq-ranges.conf',
+    optionsConfigFile: '/etc/dnsmasq.d/dnsmasq-options.conf',
+    staticLeasesConfigFile: '/etc/dnsmasq.d/dnsmasq-static-leases.conf',
+    cnamesConfigFile: '/etc/dnsmasq.d/dnsmasq-cnames.conf',
+    advancedConfigFile: '/etc/dnsmasq.d/dnsmasq-advanced.conf',
     
     // Default network configuration
     defaultDhcpRange: '192.168.1.100,192.168.1.200,24h',

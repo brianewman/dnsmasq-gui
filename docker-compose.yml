@@ -19,6 +19,4 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DNS_FILE=/etc/dnsmasq.hosts
-      - CONFIG_DIR=/etc/dnsmasq.d
       - NTP_CONFIG_FILE=/etc/chrony/chrony.conf
