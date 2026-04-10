@@ -302,6 +302,12 @@ h2 {
     transition: all 0.2s ease;
 }
 
+/* Fix for invisible dropdown options in some browsers */
+.form-select option {
+    background-color: #2c2e35;
+    color: #fff;
+}
+
 .form-control::placeholder {
     color: rgba(255, 255, 255, 0.4) !important;
 }

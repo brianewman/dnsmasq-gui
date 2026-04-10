@@ -235,7 +235,7 @@
                                         <th class="sortable fs-7" data-sort="hostname">Hostname <i class="bi bi-laptop small text-muted"></i></th>
                                         <th class="sortable fs-7" data-sort="network">Network <i class="bi bi-diagram-2 small text-muted"></i></th>
                                         <th class="sortable fs-7" data-sort="expiry">Expiry <i class="bi bi-clock small text-muted"></i></th>
-                                        <th class="text-end">Actions</th>
+                                        <th>Actions <i class="bi bi-lightning-charge small text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="leases-tbody">
@@ -295,8 +295,8 @@
                                         <th class="sortable fs-7" data-sort="ipAddress">IP Address <i class="bi bi-hash small text-muted"></i></th>
                                         <th class="sortable fs-7" data-sort="hostname">Hostname <i class="bi bi-laptop small text-muted"></i></th>
                                         <th class="sortable fs-7" data-sort="network">Network <i class="bi bi-diagram-2 small text-muted"></i></th>
-                                        <th class="fs-7">Status</th>
-                                        <th class="text-end">Actions</th>
+                                        <th class="fs-7">Status <i class="bi bi-activity small text-muted"></i></th>
+                                        <th>Actions <i class="bi bi-lightning-charge small text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="reservations-table-body">
@@ -351,13 +351,13 @@
                             <table class="table table-hover mb-0" id="ranges-table">
                                 <thead>
                                     <tr>
-                                        <th>Tag</th>
-                                        <th class="sortable" data-sort="startIp">Start IP</th>
-                                        <th class="sortable" data-sort="endIp">End IP</th>
-                                        <th class="sortable" data-sort="netmask">Netmask</th>
-                                        <th class="sortable" data-sort="leaseTime">Lease Time</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Actions</th>
+                                        <th class="fs-7">Tag <i class="bi bi-tag small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="startIp">Start IP <i class="bi bi-hash small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="endIp">End IP <i class="bi bi-hash small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="netmask">Netmask <i class="bi bi-diagram-2 small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="leaseTime">Lease Time <i class="bi bi-clock small text-muted"></i></th>
+                                        <th class="fs-7">Status <i class="bi bi-activity small text-muted"></i></th>
+                                        <th>Actions <i class="bi bi-lightning-charge small text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="ranges-table-body">
@@ -415,11 +415,11 @@
                             <table class="table table-hover mb-0" id="options-table">
                                 <thead>
                                     <tr>
-                                        <th class="sortable" data-sort="tag">Tag</th>
-                                        <th class="sortable" data-sort="option">Option</th>
-                                        <th class="sortable" data-sort="value">Value</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Actions</th>
+                                        <th class="sortable fs-7" data-sort="tag">Tag <i class="bi bi-tag small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="option">Option <i class="bi bi-gear small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="value">Value <i class="bi bi-card-text small text-muted"></i></th>
+                                        <th class="fs-7">Status <i class="bi bi-activity small text-muted"></i></th>
+                                        <th>Actions <i class="bi bi-lightning-charge small text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="options-table-body">
@@ -468,12 +468,12 @@
                             <table class="table table-hover mb-0" id="dns-records-table">
                                 <thead>
                                     <tr>
-                                        <th>Type</th>
-                                        <th class="sortable" data-sort="hostname">Hostname</th>
-                                        <th class="sortable" data-sort="ipAddress">Value</th>
-                                        <th>Aliases</th>
-                                        <th>MAC Address</th>
-                                        <th class="text-end">Actions</th>
+                                        <th class="fs-7">Type <i class="bi bi-info-circle small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="hostname">Hostname <i class="bi bi-laptop small text-muted"></i></th>
+                                        <th class="sortable fs-7" data-sort="ipAddress">Value <i class="bi bi-hash small text-muted"></i></th>
+                                        <th class="fs-7">Aliases <span class="badge bg-primary text-uppercase" style="font-size: 0.75rem; vertical-align: middle;">CNAME</span> <i class="bi bi-link-45deg small text-muted"></i></th>
+                                        <th class="fs-7">MAC Address <i class="bi bi-upc-scan small text-muted"></i></th>
+                                        <th>Actions <i class="bi bi-lightning-charge small text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="dns-records-table-body">
@@ -949,20 +949,26 @@
         <div class="modal-dialog border-0">
             <div class="modal-content card overflow-hidden shadow-lg border-secondary border-opacity-25">
                 <div class="modal-header border-0 pb-0 px-4 pt-4">
-                    <h5 class="modal-title" id="dns-modal-title">DNS Record</h5>
+                    <h5 class="modal-title" id="dns-record-modal-title">DNS Record</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
                     <form id="dns-record-form">
+                        <input type="hidden" id="dns-record-id">
                         <div class="mb-3">
                             <label class="form-label small text-muted text-uppercase fw-bold">Hostname</label>
-                            <input type="text" id="dns-hostname" class="form-control" placeholder="server.lan">
+                            <input type="text" id="dns-record-hostname" class="form-control" placeholder="server.lan" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted text-uppercase fw-bold">IP Address</label>
+                            <input type="text" id="dns-record-ip" class="form-control" placeholder="192.168.1.10" required>
                         </div>
                         <div class="mb-0">
-                            <label class="form-label small text-muted text-uppercase fw-bold">IP Address</label>
-                            <input type="text" id="dns-ip" class="form-control" placeholder="192.168.1.10">
+                            <label class="form-label small text-muted text-uppercase fw-bold">Aliases (CNAME)</label>
+                            <textarea id="dns-record-aliases" class="form-control" rows="3" placeholder="one.alias.lan&#10;two.alias.lan"></textarea>
+                            <div class="form-text mt-1">One alias per line.</div>
                         </div>
-                        <div id="dns-error" class="text-danger small mt-2" style="display: none;"></div>
+                        <div id="dns-record-error" class="text-danger small mt-2" style="display: none;"></div>
                     </form>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
@@ -975,16 +981,26 @@
 
     <!-- Delete DNS Record Modal -->
     <div class="modal fade" id="deleteDnsRecordModal" tabindex="-1">
-        <div class="modal-dialog modal-sm modal-dialog-centered border-0">
+        <div class="modal-dialog modal-dialog-centered border-0">
             <div class="modal-content card overflow-hidden shadow-lg border-danger border-opacity-25 p-4 text-center">
                 <div class="modal-body p-0">
                     <i class="bi bi-trash3 text-danger fs-1 mb-3 d-block"></i>
                     <h5 class="mb-2">Delete DNS Record?</h5>
-                    <p class="text-muted small mb-4">Are you sure you want to remove the record for <span id="delete-dns-name" class="fw-bold"></span>?</p>
+                    <p class="text-muted small mb-3">Are you sure you want to remove the record for <span id="delete-dns-record-hostname" class="fw-bold"></span>?</p>
+                    <div class="bg-light bg-opacity-10 p-2 rounded mb-4 small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">IP Address:</span>
+                            <span id="delete-dns-record-ip" class="fw-bold"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Aliases:</span>
+                            <span id="delete-dns-record-aliases" class="text-truncate" style="max-width: 150px;"></span>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 p-0 justify-content-center gap-2">
                     <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Keep It</button>
-                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="delete-dns-confirm-btn">Yes, Delete</button>
+                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-dns-record-btn">Yes, Delete</button>
                 </div>
             </div>
         </div>

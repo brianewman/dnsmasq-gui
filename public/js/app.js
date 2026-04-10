@@ -963,9 +963,9 @@ class DnsmasqGUI {
             const rowClass = isStatic ? 'table-success' : '';
             
             // Check if static reservation has different IP than current lease
-            let ipAddressDisplay = `<strong>${lease.ipAddress}</strong>`;
+            let ipAddressDisplay = `<code class="text-primary fw-bold">${lease.ipAddress}</code>`;
             if (isStatic && staticLease.ipAddress !== lease.ipAddress) {
-                ipAddressDisplay = `<strong>${lease.ipAddress}</strong><br><small class="text-muted">Reserved: ${staticLease.ipAddress}</small>`;
+                ipAddressDisplay = `<code class="text-primary fw-bold">${lease.ipAddress}</code><br><small class="text-muted">Reserved: <code class="text-muted">${staticLease.ipAddress}</code></small>`;
             }
             
             row.className = rowClass;
@@ -980,8 +980,10 @@ class DnsmasqGUI {
                     <span class="text-primary">${displayHostname}</span>${staticBadge}
                 </td>
                 <td>
-                    <span class="badge bg-info">${networkInfo.tag}</span><br>
-                    <small class="text-muted">${networkInfo.network}</small>
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <span class="badge bg-info">${networkInfo.tag}</span>
+                        <small class="text-muted">${networkInfo.network}</small>
+                    </div>
                 </td>
                 <td>
                     <small class="text-muted">
@@ -1271,23 +1273,54 @@ class DnsmasqGUI {
     }
     
     getNetworkFromIP(ipAddress) {
-        // Find which DHCP range this IP belongs to
-        for (const range of this.currentDhcpRanges) {
-            if (this.isIpInRange(ipAddress, range)) {
-                const networkAddr = this.getNetworkAddress(range.startIp, range.netmask || '255.255.255.0');
-                const cidr = this.netmaskToCidr(range.netmask || '255.255.255.0');
-                const tag = range.tag || 'default';
-                return {
-                    tag: tag,
-                    network: `${networkAddr}/${cidr}`,
-                    displayName: `${tag} (${networkAddr}/${cidr})`
-                };
+        if (!ipAddress || typeof ipAddress !== 'string') {
+            return { tag: 'unknown', network: 'none', displayName: 'unknown' };
+        }
+
+        try {
+            const ipNum = this.ipToNumber(ipAddress);
+            
+            // First pass: Direct range match (Strictly within Start IP and End IP)
+            // This handles cases where multiple ranges might be carved out of the same subnet
+            for (const range of this.currentDhcpRanges) {
+                if (this.isIpInRange(ipAddress, range)) {
+                    const mask = range.netmask || '255.255.255.0';
+                    const networkAddr = this.getNetworkAddress(range.startIp, mask);
+                    const cidr = this.netmaskToCidr(mask);
+                    const tag = range.tag || 'default';
+                    return {
+                        tag: tag,
+                        network: `${networkAddr}/${cidr}`,
+                        displayName: `${tag} (${networkAddr}/${cidr})`
+                    };
+                }
             }
+            
+            // Second pass: Subnet membership
+            // Crucial for identifying the network for reservations that fall outside the dynamic pool
+            for (const range of this.currentDhcpRanges) {
+                const mask = range.netmask || '255.255.255.0';
+                const maskNum = this.ipToNumber(mask);
+                const rangeStartNum = this.ipToNumber(range.startIp);
+                
+                if ((ipNum & maskNum) === (rangeStartNum & maskNum)) {
+                    const networkAddr = this.numberToIp((rangeStartNum & maskNum) >>> 0);
+                    const cidr = this.netmaskToCidr(mask);
+                    const tag = range.tag || 'default';
+                    return {
+                        tag: tag,
+                        network: `${networkAddr}/${cidr}`,
+                        displayName: `${tag} (${networkAddr}/${cidr})`
+                    };
+                }
+            }
+        } catch (e) {
+            console.error('Network detection error:', e);
         }
         
-        // Fallback: if not in any range, use simple /24 network
+        // Fallback: if not in any range/subnet, use simple /24 network
         const parts = ipAddress.split('.');
-        const networkAddr = `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+        const networkAddr = parts.length >= 3 ? `${parts[0]}.${parts[1]}.${parts[2]}.0` : '0.0.0.0';
         return {
             tag: 'unknown',
             network: `${networkAddr}/24`,
@@ -2512,7 +2545,6 @@ class DnsmasqGUI {
 
         tbody.innerHTML = reservations.map(reservation => {
             const network = this.getNetworkFromIP(reservation.ipAddress);
-            const networkBadge = `<span class="badge bg-info">${network.displayName}</span>`;
             
             // Check if this reservation is currently active (has a matching lease)
             const isActive = this.currentLeases && this.currentLeases.some(lease => 
@@ -2532,7 +2564,12 @@ class DnsmasqGUI {
                         <code class="text-primary">${reservation.ipAddress}</code>
                     </td>
                     <td>${reservation.hostname || '<em class="text-muted">Not set</em>'}</td>
-                    <td>${networkBadge}</td>
+                    <td>
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <span class="badge bg-info">${network.tag}</span>
+                            <small class="text-muted">${network.network}</small>
+                        </div>
+                    </td>
                     <td>${statusBadge}</td>
                     <td>
                         <div class="btn-group" role="group">
@@ -3859,10 +3896,10 @@ class DnsmasqGUI {
             
             return `
                 <tr>
-                    <td>${range.tag ? `<span class="badge bg-secondary">${range.tag}</span>` : '<span class="text-muted">-</span>'}</td>
-                    <td><code>${range.startIp}</code></td>
-                    <td><code>${range.endIp}</code></td>
-                    <td><code>${range.netmask || '255.255.255.0'}</code></td>
+                    <td>${range.tag ? `<span class="badge bg-info">${range.tag}</span>` : '<span class="text-muted">-</span>'}</td>
+                    <td><code class="text-primary">${range.startIp}</code></td>
+                    <td><code class="text-primary">${range.endIp}</code></td>
+                    <td><code class="text-muted">${range.netmask || '255.255.255.0'}</code></td>
                     <td>${range.leaseTime}</td>
                     <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
                     <td>
@@ -4133,7 +4170,7 @@ class DnsmasqGUI {
             
             return `
                 <tr>
-                    <td>${option.tag ? `<span class="badge bg-secondary">${option.tag}</span>` : '<span class="text-muted">All</span>'}</td>
+                    <td>${option.tag ? `<span class="badge bg-info">${option.tag}</span>` : '<span class="text-muted">All</span>'}</td>
                     <td><code>${option.option}</code> - ${optionName}</td>
                     <td><code>${option.value}</code></td>
                     <td><span class="${statusClass}"><i class="bi bi-circle-fill me-1"></i>${status}</span></td>
