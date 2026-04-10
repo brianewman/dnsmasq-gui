@@ -73,12 +73,23 @@ export class NtpService {
         const { stdout } = await execAsync('chronyc tracking');
         // 'Leap status' is 'Normal' when synced
         synchronized = stdout.includes('Leap status     : Normal');
-        
-        const sourceRes = await execAsync('chronyc -N sources');
-        const lines = sourceRes.stdout.split('\n');
-        const syncLine = lines.find(l => l.startsWith('^*'));
-        if (syncLine) {
-          source = syncLine.split(/\s+/)[1];
+
+        // Extract source from tracking output if possible (to avoid truncation)
+        // Format: Reference ID    : CB100801 (lithium.constant.com)
+        const refIdLine = stdout.split('\n').find(l => l.startsWith('Reference ID'));
+        const match = refIdLine?.match(/\(([^)]+)\)/);
+        if (match && match[1]) {
+          source = match[1];
+        }
+
+        // Fallback or double-check with sources if tracking didn't give a clear name
+        if (!source || source === 'LOCAL') {
+          const sourceRes = await execAsync('chronyc -N sources');
+          const lines = sourceRes.stdout.split('\n');
+          const syncLine = lines.find(l => l.startsWith('^*'));
+          if (syncLine) {
+            source = syncLine.split(/\s+/)[1];
+          }
         }
       } catch (err) {
         // May fail if chronyc is not ready

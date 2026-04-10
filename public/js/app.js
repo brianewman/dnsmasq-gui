@@ -284,27 +284,19 @@ class DnsmasqGUI {
     }
 
     initDashboardCardListeners() {
-        // Active Leases card - navigate to DHCP Leases with IP Address sorting
-        const activeLeasesCard = document.getElementById('active-leases-card');
-        if (activeLeasesCard) {
-            activeLeasesCard.addEventListener('click', () => {
-                this.navigateToLeases('ipAddress', 'asc');
-            });
-        }
-        
-        // Static Reservations card - navigate to DHCP Reservations section
-        const staticLeasesCard = document.getElementById('static-leases-card');
-        if (staticLeasesCard) {
-            staticLeasesCard.addEventListener('click', () => {
-                this.showSection('reservations');
+        // DHCP Service card - navigate to Leases
+        const dhcpServiceCard = document.getElementById('dhcp-service-card');
+        if (dhcpServiceCard) {
+            dhcpServiceCard.addEventListener('click', () => {
+                this.showSection('leases');
             });
         }
 
-        // dnsmasq Service card - navigate to Settings
-        const dnsmasqServiceCard = document.getElementById('dnsmasq-service-card');
-        if (dnsmasqServiceCard) {
-            dnsmasqServiceCard.addEventListener('click', () => {
-                this.showSection('settings');
+        // DNS Service card - navigate to DNS records
+        const dnsServiceCard = document.getElementById('dns-service-card');
+        if (dnsServiceCard) {
+            dnsServiceCard.addEventListener('click', () => {
+                this.showSection('dns');
             });
         }
 
@@ -672,15 +664,15 @@ class DnsmasqGUI {
         try {
             // Load service status
             const statusResponse = await this.apiCall('/dnsmasq/status');
-            this.updateServiceStatus(statusResponse);
 
             // Load lease counts
             const leasesResponse = await this.apiCall('/dnsmasq/leases');
-            this.updateLeaseCounts(leasesResponse);
-
-            // Load config for static lease count
+            
+            // Load config for dashboard data
             const configResponse = await this.apiCall('/dnsmasq/config');
-            this.updateConfigInfo(configResponse);
+            
+            // Update DHCP and DNS cards with status and counts
+            this.updateServiceCards(statusResponse, leasesResponse, configResponse);
 
             // Load NTP status for dashboard
             await this.loadNtpDashboardInfo();
@@ -787,60 +779,120 @@ class DnsmasqGUI {
         if (source) source.textContent = '-';
     }
 
-    updateLeaseCounts(leasesResponse) {
-        const activeCountElement = document.getElementById('active-leases-count');
-        const leasesCountBadge = document.getElementById('leases-count');
+    updateServiceCards(statusResponse, leasesResponse, configResponse) {
+        const isRunning = statusResponse.success && statusResponse.data.status === 'running';
+        const config = configResponse.success ? configResponse.data : null;
         
-        if (leasesResponse.success) {
-            const count = leasesResponse.data.length;
-            const expiredCount = leasesResponse.data.filter(lease => 
-                new Date(lease.expiry) < new Date()
-            ).length;
-            
-            activeCountElement.innerHTML = `
-                <div class="h4 mb-1">${count}</div>
-                <small class="text-muted">
-                    ${expiredCount > 0 ? `(${expiredCount} expired)` : 'All active'}
-                </small>
-            `;
-            
-            if (leasesCountBadge) {
-                leasesCountBadge.textContent = count;
-            }
-        } else {
-            activeCountElement.innerHTML = '<span class="text-muted">Error loading</span>';
-            if (leasesCountBadge) {
-                leasesCountBadge.textContent = '?';
+        // DHCP Card
+        const dhcpStatusBadge = document.getElementById('dhcp-dash-status');
+        const activeLeasesCount = document.getElementById('active-leases-count-dash');
+        const staticResCount = document.getElementById('static-reservations-count-dash');
+        
+        if (dhcpStatusBadge && config) {
+            const hasDhcp = config.dhcpRanges && config.dhcpRanges.length > 0;
+            if (!isRunning) {
+                dhcpStatusBadge.textContent = 'STOPPED';
+                dhcpStatusBadge.className = 'badge bg-danger';
+            } else if (!hasDhcp) {
+                dhcpStatusBadge.textContent = 'DISABLED';
+                dhcpStatusBadge.className = 'badge bg-secondary';
+            } else {
+                dhcpStatusBadge.textContent = 'ACTIVE';
+                dhcpStatusBadge.className = 'badge bg-success';
             }
         }
-    }
-
-    updateConfigInfo(configResponse) {
-        const staticCountElement = document.getElementById('static-leases-count');
         
-        if (configResponse.success) {
-            this.currentConfig = configResponse.data;
-            const staticCount = configResponse.data.staticLeases.length;
-            const rangeCount = configResponse.data.dhcpRanges.length;
-            
-            staticCountElement.innerHTML = `
-                <div class="h4 mb-1">${staticCount}</div>
-                <small class="text-muted">
-                    ${rangeCount} DHCP range${rangeCount !== 1 ? 's' : ''}
-                </small>
-            `;
-        } else {
-            staticCountElement.innerHTML = '<span class="text-muted">Error loading</span>';
+        if (activeLeasesCount && leasesResponse.success) {
+            activeLeasesCount.textContent = leasesResponse.data.length;
+        }
+        
+        if (staticResCount && config) {
+            staticResCount.textContent = (config.staticLeases || []).length;
+        }
+        
+        // DNS Card
+        const dnsStatusBadge = document.getElementById('dns-dash-status');
+        const dnsRecordsCount = document.getElementById('dns-records-count-dash');
+        const upstreamServersCount = document.getElementById('upstream-servers-count-dash');
+        
+        if (dnsStatusBadge && config) {
+            const isDnsEnabled = config.port !== 0; // standard dnsmasq: port=0 disables dns
+            if (!isRunning) {
+                dnsStatusBadge.textContent = 'STOPPED';
+                dnsStatusBadge.className = 'badge bg-danger';
+            } else if (!isDnsEnabled) {
+                dnsStatusBadge.textContent = 'DISABLED';
+                dnsStatusBadge.className = 'badge bg-secondary';
+            } else {
+                dnsStatusBadge.textContent = 'ACTIVE';
+                dnsStatusBadge.className = 'badge bg-success';
+            }
+        }
+        
+        if (dnsRecordsCount && config) {
+            // Only count A records as primary host records
+            const aRecords = (config.dnsRecords || []).filter(r => r.type === 'A');
+            dnsRecordsCount.textContent = aRecords.length;
+        }
+        
+        if (upstreamServersCount && config) {
+            upstreamServersCount.textContent = (config.upstreamServers || []).length;
         }
     }
 
     showDashboardError() {
-        ['service-status', 'active-leases-count', 'static-leases-count'].forEach(id => {
+        ['dhcp-dash-status', 'dns-dash-status'].forEach(id => {
             const element = document.getElementById(id);
             if (element) {
-                element.innerHTML = '<span class="text-danger">Error loading</span>';
+                element.textContent = 'ERROR';
+                element.className = 'badge bg-danger';
             }
         });
+    }
+
+    // Helper to check if the user is currently typing or has a modal open
+    isUserInteracting() {
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+            ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName)
+        );
+        
+        const isModalOpen = document.querySelector('.modal.show') !== null;
+        
+        return isInputFocused || isModalOpen;
+    }
+
+    async refreshNtpStatusOnly() {
+        try {
+            const result = await this.apiCall('/ntp/status');
+            if (result.success) {
+                // Update dashboard card if present
+                this.updateNtpDashboardCard(result.data);
+                
+                // Update settings page status card if present
+                const statusText = document.getElementById('ntp-status-text');
+                const syncText = document.getElementById('ntp-sync-text');
+                const sourceText = document.getElementById('ntp-source-text');
+                
+                if (statusText) {
+                    const isRunning = result.data.active === true;
+                    statusText.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+                    statusText.style.color = isRunning ? 'var(--bs-success)' : 'var(--bs-danger)';
+                }
+                
+                if (syncText) {
+                    const isSynced = result.data.synchronized === true;
+                    syncText.textContent = isSynced ? 'SYNCED' : 'SEARCHING';
+                    syncText.style.color = isSynced ? 'var(--bs-info)' : 'var(--bs-warning)';
+                }
+                
+                if (sourceText) {
+                    sourceText.textContent = result.data.source || 'None';
+                }
+            }
+        } catch (err) {
+            console.error('Failed to auto-refresh NTP status:', err);
+        }
     }
 
     async loadLeases() {
@@ -4555,25 +4607,38 @@ function refreshLeases() {
 // Auto-refresh functionality
 function enableAutoRefresh() {
     setInterval(() => {
-        if (app.token) {
-            // Only refresh if we're on the dashboard or leases page
-            const currentSection = document.querySelector('.content-section[style="display: block;"], .content-section:not([style*="display: none"])');
-            if (currentSection) {
-                const sectionId = currentSection.id;
-                if (sectionId === 'dashboard-section') {
-                    app.loadDashboard();
-                } else if (sectionId === 'leases-section') {
-                    app.loadLeases();
-                } else if (sectionId === 'reservations-section') {
-                    app.loadReservations();
-                } else if (sectionId === 'ranges-section') {
-                    app.loadRanges();
-                } else if (sectionId === 'options-section') {
-                    app.loadOptions();
-                } else if (sectionId === 'ntp-section') {
-                    app.loadNtpSettings();
-                }
-            }
+        if (!app.token) return;
+
+        // Determine active section
+        const currentSection = document.querySelector('.content-section[style="display: block;"], .content-section:not([style*="display: none"])');
+        if (!currentSection) return;
+
+        const sectionId = currentSection.id;
+
+        // 1. Dashboard always refreshes (it's monitoring only)
+        if (sectionId === 'dashboard-section') {
+            app.loadDashboard();
+            return;
         }
+
+        // 2. Volatile pages (Leases) refresh unless the user is interacting
+        if (sectionId === 'leases-section') {
+            if (!app.isUserInteracting()) {
+                app.loadLeases();
+            }
+            return;
+        }
+
+        // 3. Status-only refresh for configuration pages
+        if (sectionId === 'ntp-section') {
+            // Always refresh the "System Time Status" card, but NEVER the settings forms
+            app.refreshNtpStatusOnly();
+            return;
+        }
+
+        // 4. For other configuration pages, we skip auto-refresh entirely 
+        // while the user is on the page to prevent losing work-in-progress.
+        // The user can use the manual "Refresh" button instead.
+        
     }, 30000); // Refresh every 30 seconds
 }

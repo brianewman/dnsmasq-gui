@@ -95,62 +95,62 @@
                 <!-- Dashboard Section -->
                 <div id="dashboard-section" class="content-section">
                     <div class="row g-4 mb-4" id="dashboard-row">
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card stat-card h-100" id="active-leases-card" style="cursor: pointer;">
+                        <!-- DHCP Service Card -->
+                        <div class="col-lg-4">
+                            <div class="card stat-card h-100" id="dhcp-service-card" style="cursor: pointer;">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <div class="d-flex align-items-center">
                                             <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
                                                 <i class="bi bi-broadcast"></i>
                                             </div>
-                                            <h5 class="text-muted small-caps mb-0">Active Leases</h5>
+                                            <h5 class="text-muted small-caps mb-0">DHCP Service</h5>
                                         </div>
-                                        <span class="badge bg-primary bg-opacity-10 text-primary" id="leases-count">0</span>
+                                        <span id="dhcp-dash-status" class="badge bg-secondary">Unknown</span>
                                     </div>
-                                    <div id="active-leases-count">
-                                        <div class="h3 mb-0">0</div>
+                                    <div class="d-flex flex-column gap-2 mt-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted small">Active Leases</span>
+                                            <span id="active-leases-count-dash" class="fw-bold fs-5">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted small">Static Reservations</span>
+                                            <span id="static-reservations-count-dash" class="fw-bold fs-5">0</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card stat-card h-100" id="static-leases-card" style="cursor: pointer;">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-4">
-                                        <div class="d-flex align-items-center">
-                                            <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
-                                                <i class="bi bi-bookmark-check"></i>
-                                            </div>
-                                            <h5 class="text-muted small-caps mb-0">Static Reservations</h5>
-                                        </div>
-                                    </div>
-                                    <div id="static-leases-count">
-                                        <div class="h3 mb-0">0</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card stat-card h-100" id="dnsmasq-service-card" style="cursor: pointer;">
+
+                        <!-- DNS Service Card -->
+                        <div class="col-lg-4">
+                            <div class="card stat-card h-100" id="dns-service-card" style="cursor: pointer;">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-4">
                                         <div class="d-flex align-items-center">
                                             <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
-                                                <i class="bi bi-cpu"></i>
+                                                <i class="bi bi-globe"></i>
                                             </div>
-                                            <h5 class="text-muted small-caps mb-0">Network Engine</h5>
+                                            <h5 class="text-muted small-caps mb-0">DNS Service</h5>
                                         </div>
+                                        <span id="dns-dash-status" class="badge bg-secondary">Unknown</span>
                                     </div>
-                                    <div id="service-status">
-                                        <div class="h3 mb-0 text-muted">Unknown</div>
-                                    </div>
-                                    <div id="service-uptime" style="display: none;" class="mt-2 text-muted small">
-                                        Uptime: <span id="uptime-value">0</span>
+                                    <div class="d-flex flex-column gap-2 mt-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted small">Host Records</span>
+                                            <span id="dns-records-count-dash" class="fw-bold fs-5">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-muted small">Upstream Servers</span>
+                                            <span id="upstream-servers-count-dash" class="fw-bold fs-5">0</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6 col-lg-4">
+
+                        <!-- NTP Service Card -->
+                        <div class="col-lg-4">
                             <div class="card stat-card h-100" id="ntp-status-card" style="cursor: pointer;">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -158,15 +158,12 @@
                                             <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
                                                 <i class="bi bi-clock-history"></i>
                                             </div>
-                                            <h5 class="text-muted small-caps mb-0">Network Time</h5>
+                                            <h5 class="text-muted small-caps mb-0">NTP Service</h5>
                                         </div>
+                                        <span id="ntp-dash-service" class="badge bg-secondary">Unknown</span>
                                     </div>
-                                    <div id="ntp-dashboard-status">
+                                    <div id="ntp-dashboard-status" class="mt-3">
                                         <div class="d-flex flex-column gap-2">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="text-muted small">Service</span>
-                                                <span id="ntp-dash-service" class="badge bg-secondary">Unknown</span>
-                                            </div>
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <span class="text-muted small">Status</span>
                                                 <span id="ntp-dash-sync" class="badge bg-secondary">Unknown</span>
@@ -180,6 +177,7 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
 
@@ -279,6 +277,9 @@
                                 <i class="bi bi-x-lg"></i>
                             </button>
                             <span class="badge bg-secondary d-flex align-items-center px-3" id="reservations-count">0</span>
+                            <button class="btn btn-outline-secondary px-3" onclick="app.loadReservations()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+                            </button>
                             <button class="btn btn-primary px-3" onclick="app.showAddReservationModal()">
                                 <i class="bi bi-plus-lg me-2"></i>Add Device
                             </button>
@@ -336,6 +337,9 @@
                             <button class="btn btn-outline-secondary" id="clear-ranges-filters-btn" title="Clear Filters">
                                 <i class="bi bi-x-lg"></i>
                             </button>
+                            <button class="btn btn-outline-secondary px-3" onclick="app.loadRanges()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+                            </button>
                             <button class="btn btn-primary px-3" id="add-range-btn" onclick="app.showAddRangeModal()">
                                 <i class="bi bi-plus-lg me-2"></i>Add Pool
                             </button>
@@ -347,10 +351,12 @@
                             <table class="table table-hover mb-0" id="ranges-table">
                                 <thead>
                                     <tr>
+                                        <th>Tag</th>
                                         <th class="sortable" data-sort="startIp">Start IP</th>
                                         <th class="sortable" data-sort="endIp">End IP</th>
                                         <th class="sortable" data-sort="netmask">Netmask</th>
                                         <th class="sortable" data-sort="leaseTime">Lease Time</th>
+                                        <th>Status</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -394,6 +400,9 @@
                         <div class="d-flex gap-2">
                             <button class="btn btn-outline-secondary" id="clear-options-filters-btn" title="Clear Filters">
                                 <i class="bi bi-x-lg"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary px-3" onclick="app.loadOptions()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
                             </button>
                             <button class="btn btn-primary px-3" id="add-option-btn" onclick="app.showAddOptionModal()">
                                 <i class="bi bi-plus-lg me-2"></i>Add Option
@@ -445,6 +454,9 @@
                             <button class="btn btn-outline-secondary" id="clear-dns-filters-btn" title="Clear Filters">
                                 <i class="bi bi-x-lg"></i>
                             </button>
+                            <button class="btn btn-outline-secondary px-3" onclick="app.loadDnsConfig()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+                            </button>
                             <button class="btn btn-primary px-3" id="add-dns-record-btn" onclick="app.showAddDnsRecordModal()">
                                 <i class="bi bi-plus-lg me-2"></i>Add Record
                             </button>
@@ -456,9 +468,11 @@
                             <table class="table table-hover mb-0" id="dns-records-table">
                                 <thead>
                                     <tr>
+                                        <th>Type</th>
                                         <th class="sortable" data-sort="hostname">Hostname</th>
-                                        <th class="sortable" data-sort="ipAddress">IP Address</th>
-                                        <th>Source</th>
+                                        <th class="sortable" data-sort="ipAddress">Value</th>
+                                        <th>Aliases</th>
+                                        <th>MAC Address</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -484,9 +498,14 @@
                 <div id="ntp-section" class="content-section" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h2>Network Time (NTP)</h2>
-                        <button class="btn btn-primary btn-sm" id="save-ntp-btn" onclick="app.saveNtpSettings()">
-                            <i class="bi bi-floppy me-1"></i> Save Settings
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary" onclick="app.loadNtpSettings()">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                            </button>
+                            <button class="btn btn-primary px-4" id="save-ntp-btn" onclick="app.saveNtpSettings()">
+                                <i class="bi bi-floppy me-2"></i> Save Settings
+                            </button>
+                        </div>
                     </div>
 
                     <div class="row g-4">
@@ -564,9 +583,14 @@
                             <i class="bi bi-gear-fill fs-4 me-3 text-primary"></i>
                             <h2 class="mb-0">Advanced Settings</h2>
                         </div>
-                        <button class="btn btn-primary px-4" id="save-settings-btn" onclick="app.saveAdvancedSettings()">
-                            <i class="bi bi-floppy me-2"></i>Save Configuration
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary" onclick="app.loadAdvancedSettings()">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                            </button>
+                            <button class="btn btn-primary px-4" id="save-settings-btn" onclick="app.saveAdvancedSettings()">
+                                <i class="bi bi-floppy me-2"></i>Save Configuration
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="row g-4">
