@@ -115,6 +115,23 @@ dnsmasqRoutes.post('/leases/:macAddress/static', async (req: AuthenticatedReques
   }
 });
 
+// Delete dynamic DHCP lease
+dnsmasqRoutes.delete('/leases/:macAddress', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { macAddress } = req.params;
+    await dnsmasqService.deleteLease(macAddress);
+    res.json({
+      success: true,
+      message: 'DHCP lease deleted successfully'
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete lease'
+    } as ApiResponse);
+  }
+});
+
 // Get all static reservations
 dnsmasqRoutes.get('/reservations', async (req: AuthenticatedRequest, res) => {
   try {
