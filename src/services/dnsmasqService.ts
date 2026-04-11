@@ -441,7 +441,19 @@ export class DnsmasqService {
       
       // Process CNAME records and add them as aliases to existing A records
       for (const cnameRecord of cnameRecords) {
-        const targetRecord = recordMap.get(cnameRecord.value);
+        let targetRecord = recordMap.get(cnameRecord.value);
+        
+        // If exact match fails, try matching the base hostname (e.g. without domain suffix)
+        if (!targetRecord) {
+          const targetBase = cnameRecord.value.split('.')[0];
+          for (const [hostname, record] of recordMap.entries()) {
+            if (hostname.split('.')[0] === targetBase && record.type === 'A') {
+              targetRecord = record;
+              break;
+            }
+          }
+        }
+
         if (targetRecord) {
           // Add CNAME as alias to the target A record
           if (!targetRecord.aliases) {
@@ -1086,16 +1098,15 @@ export class DnsmasqService {
         return;
       }
       
-      // Use systemctl directly to restart dnsmasq on Linux
-      const { stdout, stderr } = await execAsync('sudo systemctl restart dnsmasq');
+      // Restart dnsmasq process in Docker
+      // In Docker, we can't use systemctl. We kill the process and restart it.
+      await execAsync('pkill dnsmasq || true');
       
-      console.log('DNSmasq service restarted successfully');
-      if (stdout) {
-        console.log('Restart stdout:', stdout);
-      }
-      if (stderr) {
-        console.log('Restart stderr:', stderr);
-      }
+      // Start dnsmasq again in background
+      // Use the same config and parameters as docker-entrypoint.sh
+      await execAsync('dnsmasq --keep-in-foreground &');
+      
+      console.log('DNSmasq service restarted successfully via process signal');
       
     } catch (error: any) {
       console.log('Failed to restart dnsmasq service:', error.message);
@@ -1112,16 +1123,11 @@ export class DnsmasqService {
         return;
       }
       
-      // Use systemctl directly to reload dnsmasq on Linux
-      const { stdout, stderr } = await execAsync('sudo systemctl reload dnsmasq');
+      // Reload dnsmasq configuration via SIGHUP
+      // This is the standard way to reload dnsmasq without killing the process
+      await execAsync('pkill -HUP dnsmasq');
       
-      console.log('DNSmasq service reloaded successfully');
-      if (stdout) {
-        console.log('Reload stdout:', stdout);
-      }
-      if (stderr) {
-        console.log('Reload stderr:', stderr);
-      }
+      console.log('DNSmasq service reloaded successfully via SIGHUP');
       
     } catch (error: any) {
       console.log('Failed to reload dnsmasq service:', error.message);
@@ -1131,24 +1137,49 @@ export class DnsmasqService {
 
   async getStatus(): Promise<any> {
     try {
-      // Try without sudo first (systemctl status works without sudo for status checks)
-      const { stdout } = await execAsync('systemctl status dnsmasq --no-pager');
-      const isRunning = stdout.includes('active (running)');
+      // Only skip on Windows development environment
+      if (process.platform === 'win32') {
+        return {
+          status: 'running',
+          uptime: 'Simulated (Windows)',
+          details: 'DNSmasq is running in simulation mode'
+        };
+      }
       
-      // Extract uptime from systemctl output
-      let uptime = 'Unknown';
-      const activeMatch = stdout.match(/Active: active \(running\) since (.+?);/);
-      if (activeMatch) {
-        const startTime = new Date(activeMatch[1]);
-        const now = new Date();
-        const uptimeMs = now.getTime() - startTime.getTime();
-        uptime = this.formatUptime(uptimeMs);
+      // Alternative method for Docker/Linux without systemctl: check if dnsmasq process is running
+      try {
+        const { stdout: psOutput } = await execAsync('pgrep -f dnsmasq');
+        if (psOutput.trim()) {
+          // Get process start time for uptime
+          let uptime = 'Unknown';
+          try {
+            const pid = psOutput.trim().split('\n')[0];
+            const { stdout: psDetails } = await execAsync(`ps -o pid,lstart -p ${pid} --no-headers`);
+            if (psDetails.trim()) {
+              const startTimeStr = psDetails.trim().substring(psDetails.indexOf(' ') + 1);
+              const startTime = new Date(startTimeStr);
+              const now = new Date();
+              const uptimeMs = now.getTime() - startTime.getTime();
+              uptime = this.formatUptime(uptimeMs);
+            }
+          } catch (e) {
+            console.log('Failed to get process uptime:', e);
+          }
+          
+          return {
+            status: 'running',
+            uptime: uptime,
+            details: 'DNSmasq is running as process'
+          };
+        }
+      } catch (error: any) {
+        console.log('Dnsmasq is not running:', error.message);
       }
       
       return {
-        status: isRunning ? 'running' : 'stopped',
-        uptime: isRunning ? uptime : null,
-        details: stdout
+        status: 'stopped',
+        uptime: null,
+        details: 'DNSmasq process not found'
       };
     } catch (error: any) {
       console.log('Failed to get dnsmasq status via systemctl, trying alternative methods:', error.message);

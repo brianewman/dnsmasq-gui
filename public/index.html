@@ -219,7 +219,7 @@
                             <button class="btn btn-outline-secondary" id="clear-filters-btn" title="Clear Filters">
                                 <i class="bi bi-x-lg"></i>
                             </button>
-                            <button class="btn btn-primary px-3" onclick="app.loadLeases()">
+                            <button class="btn btn-outline-secondary px-3" onclick="app.loadLeases()">
                                 <i class="bi bi-arrow-clockwise me-2"></i>Refresh
                             </button>
                         </div>
@@ -722,13 +722,14 @@
         <div class="d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center">
                 <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-4"></i>
-                <div class="me-4">
+                <div class="me-4 text-start">
                     <div class="fw-bold text-white">Pending Changes</div>
-                    <div class="text-muted small">Restart the service to apply your configuration.</div>
+                    <div class="text-muted small" id="banner-message">Reload or restart the service to apply your configuration changes.</div>
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <button id="banner-restart-btn" class="btn btn-primary btn-sm px-4">Apply Now</button>
+                <button id="banner-reload-btn" class="btn btn-info btn-sm px-4">Reload</button>
+                <button id="banner-restart-btn" class="btn btn-primary btn-sm px-4">Restart</button>
                 <button id="banner-dismiss-btn" class="btn btn-outline-secondary btn-sm">Later</button>
             </div>
         </div>
@@ -802,11 +803,53 @@
                 <div class="modal-body p-0">
                     <i class="bi bi-trash3 text-danger fs-1 mb-3 d-block"></i>
                     <h5 class="mb-2">Delete Reservation?</h5>
-                    <p class="text-muted small mb-4">This will remove the static assignment for <span id="delete-reservation-name" class="fw-bold"></span>.</p>
+                    <p class="text-muted small mb-1">This will permanently remove the reservation for:</p>
+                    <p class="mb-0 small"><strong>MAC:</strong> <code id="delete-reservation-mac"></code></p>
+                    <p class="mb-0 small"><strong>IP:</strong> <code id="delete-reservation-ip"></code></p>
+                    <p class="mb-4 small"><strong>Hostname:</strong> <span id="delete-reservation-hostname"></span></p>
                 </div>
                 <div class="modal-footer border-0 p-0 justify-content-center gap-2">
                     <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Keep It</button>
-                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="delete-reservation-confirm-btn">Yes, Delete</button>
+                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-reservation-btn">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Make Static Confirmation Modal -->
+    <div class="modal fade" id="makeStaticModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered border-0">
+            <div class="modal-content card overflow-hidden shadow-lg border-primary border-opacity-25 p-4 text-center">
+                <div class="modal-body p-0">
+                    <i class="bi bi-bookmark-check text-primary fs-1 mb-3 d-block"></i>
+                    <h5 class="mb-2">Create Static Reservation?</h5>
+                    <p class="text-muted small mb-1">This will create a permanent reservation for:</p>
+                    <p class="mb-0 small"><strong>IP:</strong> <code id="make-static-ip"></code></p>
+                    <p class="mb-0 small"><strong>MAC:</strong> <code id="make-static-mac"></code></p>
+                    <p class="mb-4 small"><strong>Hostname:</strong> <span id="make-static-hostname"></span></p>
+                </div>
+                <div class="modal-footer border-0 p-0 justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" id="make-static-confirm-btn">Make Static</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lease Details Modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog border-0">
+            <div class="modal-content card overflow-hidden shadow-lg border-secondary border-opacity-25">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h5 class="modal-title" id="detailsModalTitle">
+                        <i class="bi bi-info-circle me-2 text-info"></i>Lease Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 pb-2" id="detailsModalBody">
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -864,16 +907,25 @@
 
     <!-- Delete Range Modal -->
     <div class="modal fade" id="deleteRangeModal" tabindex="-1">
-        <div class="modal-dialog modal-sm modal-dialog-centered border-0">
+        <div class="modal-dialog modal-dialog-centered border-0">
             <div class="modal-content card overflow-hidden shadow-lg border-danger border-opacity-25 p-4 text-center">
                 <div class="modal-body p-0">
                     <i class="bi bi-trash3 text-danger fs-1 mb-3 d-block"></i>
                     <h5 class="mb-2">Remove Network Pool?</h5>
-                    <p class="text-muted small mb-4">Devices on <span id="delete-range-name" class="fw-bold"></span> will no longer receive IP addresses from this range.</p>
+                    <p class="text-muted small mb-1">This will remove the IP range:</p>
+                    <p class="mb-0 small"><strong>Start:</strong> <code id="delete-range-start"></code></p>
+                    <p class="mb-0 small"><strong>End:</strong> <code id="delete-range-end"></code></p>
+                    <p class="mb-3 small"><strong>Tag:</strong> <span id="delete-range-tag"></span></p>
+                    <!-- Dependency warning (shown if range has dependents) -->
+                    <div id="delete-range-blocked" class="alert alert-warning text-start small mb-0" style="display:none;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Cannot delete — this range is in use:</strong>
+                        <div id="delete-range-blocked-details" class="mt-1"></div>
+                    </div>
                 </div>
-                <div class="modal-footer border-0 p-0 justify-content-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Keep It</button>
-                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="delete-range-confirm-btn">Yes, Remove</button>
+                <div class="modal-footer border-0 p-0 justify-content-center gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-range-btn">Yes, Remove</button>
                 </div>
             </div>
         </div>
@@ -908,8 +960,10 @@
                             <input type="text" id="option-value" class="form-control" placeholder="192.168.1.1">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small text-muted text-uppercase fw-bold">Network Tag (Optional)</label>
-                            <input type="text" id="option-tag" class="form-control" placeholder="staff">
+                            <label class="form-label small text-muted text-uppercase fw-bold">Network Tag</label>
+                            <select id="option-tag" class="form-select bg-dark border-secondary border-opacity-25 text-white">
+                                <option value="">All Networks</option>
+                            </select>
                         </div>
                         <div class="form-check form-switch mb-0">
                             <input class="form-check-input" type="checkbox" id="option-active" checked>
@@ -933,11 +987,14 @@
                 <div class="modal-body p-0">
                     <i class="bi bi-trash3 text-danger fs-1 mb-3 d-block"></i>
                     <h5 class="mb-2">Delete Option?</h5>
-                    <p class="text-muted small mb-4">Removing <span id="delete-option-name" class="fw-bold"></span> may affect client network configuration.</p>
+                    <p class="text-muted small mb-1">This will remove the following DHCP option:</p>
+                    <p class="mb-0 small"><strong>Option:</strong> <span id="delete-option-number" class="fw-bold"></span></p>
+                    <p class="mb-0 small"><strong>Value:</strong> <span id="delete-option-value"></span></p>
+                    <p class="mb-4 small"><strong>Tag:</strong> <span id="delete-option-tag"></span></p>
                 </div>
                 <div class="modal-footer border-0 p-0 justify-content-center gap-2">
                     <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Keep It</button>
-                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="delete-option-confirm-btn">Yes, Delete</button>
+                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-option-btn">Yes, Delete</button>
                 </div>
             </div>
         </div>
@@ -991,15 +1048,49 @@
                             <span class="text-muted">IP Address:</span>
                             <span id="delete-dns-record-ip" class="fw-bold"></span>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted">Aliases:</span>
-                            <span id="delete-dns-record-aliases" class="text-truncate" style="max-width: 150px;"></span>
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <span class="text-muted flex-shrink-0">Aliases:</span>
+                            <span id="delete-dns-record-aliases" class="text-end"></span>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-0 justify-content-center gap-2">
                     <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Keep It</button>
                     <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-dns-record-btn">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reload Service Modal -->
+    <div class="modal fade" id="reloadServiceModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered border-0">
+            <div class="modal-content card overflow-hidden shadow-lg border-info border-opacity-25 p-4 text-center">
+                <div class="modal-body p-0">
+                    <i class="bi bi-arrow-clockwise text-info fs-1 mb-3 d-block"></i>
+                    <h5 class="mb-2">Reload Configuration?</h5>
+                    <p class="text-muted small mb-4">This will apply changes without interrupting active connections. Most DNS and DHCP changes will be processed immediately.</p>
+                </div>
+                <div class="modal-footer border-0 p-0 justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-info px-4 shadow-sm text-white" id="confirm-reload-service-btn">Yes, Reload</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restart Service Modal -->
+    <div class="modal fade" id="restartServiceModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered border-0">
+            <div class="modal-content card overflow-hidden shadow-lg border-primary border-opacity-25 p-4 text-center">
+                <div class="modal-body p-0">
+                    <i class="bi bi-power text-primary fs-1 mb-3 d-block"></i>
+                    <h5 class="mb-2">Restart DNSmasq?</h5>
+                    <p class="text-muted small mb-4">This will briefly interrupt network services. Use this if a reload doesn't pick up your changes or if the service is unhealthy.</p>
+                </div>
+                <div class="modal-footer border-0 p-0 justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" id="confirm-restart-service-btn">Yes, Restart</button>
                 </div>
             </div>
         </div>

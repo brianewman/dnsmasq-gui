@@ -992,31 +992,46 @@ class DnsmasqGUI {
                 </td>
                 <td>
                     <div class="btn-group" role="group">
-                        ${isStatic ? 
-                            `<button class="btn btn-sm btn-outline-primary" 
-                                onclick="app.editStaticReservation('${staticLease.macAddress}', '${staticLease.hostname || ''}', '${staticLease.ipAddress}')"
-                                title="Edit static reservation">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" 
-                                onclick="app.deleteStaticReservation('${staticLease.macAddress}', '${staticLease.hostname || ''}', '${staticLease.ipAddress}')"
-                                title="Delete static reservation">
-                            <i class="bi bi-trash"></i>
-                        </button>` :
-                            `<button class="btn btn-sm btn-outline-primary" 
-                                onclick="app.convertToStatic('${lease.macAddress}', '${lease.hostname || ''}', '${lease.ipAddress}')"
-                                title="Convert to static reservation">
-                            <i class="bi bi-bookmark"></i> Make Static
-                        </button>`
-                        }
-                        <button class="btn btn-sm btn-outline-info" 
-                                onclick="app.showLeaseDetails('${lease.macAddress}')"
-                                title="Show lease details">
-                            <i class="bi bi-info-circle"></i>
-                        </button>
                     </div>
                 </td>
             `;
+
+            const btnGroup = row.querySelector('.btn-group');
+
+            if (isStatic) {
+                // Edit Button
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-sm btn-outline-primary';
+                editBtn.title = 'Edit static reservation';
+                editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+                editBtn.onclick = () => this.editStaticReservation(staticLease.macAddress, staticLease.hostname || '', staticLease.ipAddress);
+                btnGroup.appendChild(editBtn);
+
+                // Delete Button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                deleteBtn.title = 'Delete static reservation';
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteBtn.onclick = () => this.deleteStaticReservation(staticLease.macAddress, staticLease.hostname || '', staticLease.ipAddress);
+                btnGroup.appendChild(deleteBtn);
+            } else {
+                // Convert to Static Button
+                const staticBtn = document.createElement('button');
+                staticBtn.className = 'btn btn-sm btn-outline-primary';
+                staticBtn.title = 'Convert to static reservation';
+                staticBtn.innerHTML = '<i class="bi bi-bookmark"></i> Make Static';
+                staticBtn.onclick = () => this.convertToStatic(lease.macAddress, lease.hostname || '', lease.ipAddress);
+                btnGroup.appendChild(staticBtn);
+            }
+
+            // Details Button
+            const detailsBtn = document.createElement('button');
+            detailsBtn.className = 'btn btn-sm btn-outline-info';
+            detailsBtn.title = 'Show lease details';
+            detailsBtn.innerHTML = '<i class="bi bi-info-circle"></i>';
+            detailsBtn.onclick = () => this.showLeaseDetails(lease.macAddress);
+            btnGroup.appendChild(detailsBtn);
+
             tbody.appendChild(row);
         });
     }
@@ -1512,26 +1527,31 @@ class DnsmasqGUI {
 
     populateOptionsTagFilter() {
         const tagFilter = document.getElementById('options-tag-filter');
-        if (!tagFilter || !this.allOptions) return;
+        if (!tagFilter) return;
         
         // Store the current selection
         const currentSelection = tagFilter.value;
         
-        // Get unique tags from options
+        // Merge tags from both existing options AND all DHCP ranges
         const tags = new Set();
-        this.allOptions.forEach(option => {
+
+        (this.allOptions || []).forEach(option => {
             if (option.tag && option.tag.trim()) {
                 tags.add(option.tag.trim());
             }
         });
+
+        (this.currentDhcpRanges || []).forEach(range => {
+            if (range.tag && range.tag.trim()) {
+                tags.add(range.tag.trim());
+            }
+        });
         
-        // Sort tags
+        // Sort tags alphabetically
         const sortedTags = Array.from(tags).sort();
         
-        // Clear existing options except the first one
         tagFilter.innerHTML = '<option value="">All Tags</option>';
         
-        // Add tag options
         sortedTags.forEach(tag => {
             const option = document.createElement('option');
             option.value = tag;
@@ -1613,28 +1633,41 @@ class DnsmasqGUI {
     }
 
     async convertToStatic(macAddress, hostname, ipAddress) {
-        if (!confirm(`Convert lease for ${macAddress} to static reservation?\n\nThis will create a permanent reservation for:\nIP: ${ipAddress}\nMAC: ${macAddress}\nHostname: ${hostname || '(none)'}`)) {
-            return;
-        }
+        // Populate the Bootstrap confirmation modal
+        document.getElementById('make-static-mac').textContent = macAddress;
+        document.getElementById('make-static-ip').textContent = ipAddress;
+        document.getElementById('make-static-hostname').textContent = hostname || '(none)';
 
-        try {
-            const response = await this.apiCall(`/dnsmasq/leases/${macAddress}/static`, 'POST', { 
-                hostname: hostname || null,
-                ipAddress: ipAddress 
-            });
-            
-            if (response.success) {
-                this.showAlert('success', 'Static reservation created successfully!');
-                this.loadLeases(); // Refresh the lease list
-                this.loadDashboard(); // Refresh dashboard counts
-                this.showBanner('DHCP reservation created. Reload the service to apply changes.');
-            } else {
-                this.showAlert('danger', response.error || 'Failed to convert lease to static reservation');
+        const modalEl = document.getElementById('makeStaticModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // Clone the confirm button to remove any previous event listeners
+        const confirmBtn = document.getElementById('make-static-confirm-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', async () => {
+            modal.hide();
+            try {
+                const response = await this.apiCall(`/dnsmasq/leases/${macAddress}/static`, 'POST', {
+                    hostname: hostname || null,
+                    ipAddress: ipAddress
+                });
+                if (response.success) {
+                    this.showAlert('success', 'Static reservation created successfully!');
+                    this.loadLeases();
+                    this.loadDashboard();
+                    this.showBanner('DHCP reservation created. Reload the service to apply changes.');
+                } else {
+                    this.showAlert('danger', response.error || 'Failed to convert lease to static reservation');
+                }
+            } catch (error) {
+                console.error('Error converting to static:', error);
+                this.showAlert('danger', 'Failed to convert lease to static reservation');
             }
-        } catch (error) {
-            console.error('Error converting to static:', error);
-            this.showAlert('danger', 'Failed to convert lease to static reservation');
-        }
+        });
+
+        modal.show();
     }
 
     editStaticReservation(macAddress, hostname, ipAddress) {
@@ -1674,40 +1707,52 @@ class DnsmasqGUI {
     }
 
     deleteStaticReservation(macAddress, hostname, ipAddress) {
-        if (!confirm(`Delete static reservation?\n\nThis will remove the permanent reservation for:\nIP: ${ipAddress}\nMAC: ${macAddress}\nHostname: ${hostname || '(none)'}`)) {
-            return;
-        }
+        // Populate the Bootstrap delete confirmation modal
+        document.getElementById('delete-reservation-mac').textContent = macAddress;
+        document.getElementById('delete-reservation-ip').textContent = ipAddress;
+        document.getElementById('delete-reservation-hostname').textContent = hostname || 'Not set';
 
-        // First find the reservation ID by MAC address
-        this.apiCall('/dnsmasq/config').then(configResponse => {
-            if (configResponse.success) {
-                const reservation = configResponse.data.staticLeases.find(
-                    lease => lease.macAddress.toLowerCase() === macAddress.toLowerCase()
-                );
-                
-                if (reservation) {
-                    // Delete the reservation using its ID
-                    return this.apiCall(`/dnsmasq/reservations/${reservation.id}`, 'DELETE');
+        const modalEl = document.getElementById('deleteReservationModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // Clone button to remove any stacked listeners
+        const confirmBtn = document.getElementById('confirm-delete-reservation-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', () => {
+            modal.hide();
+            // Find the reservation ID by MAC address
+            this.apiCall('/dnsmasq/config').then(configResponse => {
+                if (configResponse.success) {
+                    const reservation = configResponse.data.staticLeases.find(
+                        lease => lease.macAddress.toLowerCase() === macAddress.toLowerCase()
+                    );
+                    if (reservation) {
+                        return this.apiCall(`/dnsmasq/reservations/${reservation.id}`, 'DELETE');
+                    } else {
+                        throw new Error('Static reservation not found');
+                    }
                 } else {
-                    throw new Error('Static reservation not found');
+                    throw new Error('Failed to fetch reservations');
                 }
-            } else {
-                throw new Error('Failed to fetch reservations');
-            }
-        }).then(response => {
-            if (response.success) {
-                this.showAlert('success', 'Static reservation deleted successfully!');
-                this.loadLeases(); // Refresh the lease list
-                this.loadReservations(); // Refresh reservations list
-                this.loadDashboard(); // Refresh dashboard counts
-                this.showBanner('DHCP reservation deleted. Reload the service to apply changes.');
-            } else {
-                this.showAlert('danger', response.error || 'Failed to delete static reservation');
-            }
-        }).catch(error => {
-            console.error('Error deleting static reservation:', error);
-            this.showAlert('danger', 'Failed to delete static reservation');
+            }).then(response => {
+                if (response.success) {
+                    this.showAlert('success', 'Static reservation deleted successfully!');
+                    this.loadLeases();
+                    this.loadReservations();
+                    this.loadDashboard();
+                    this.showBanner('DHCP reservation deleted. Reload the service to apply changes.');
+                } else {
+                    this.showAlert('danger', response.error || 'Failed to delete static reservation');
+                }
+            }).catch(error => {
+                console.error('Error deleting static reservation:', error);
+                this.showAlert('danger', 'Failed to delete static reservation');
+            });
         });
+
+        modal.show();
     }
 
     async getMacManufacturer(macAddress) {
@@ -1775,32 +1820,34 @@ class DnsmasqGUI {
                 
                 // Show modal with loading state for manufacturer
                 this.showModal('Lease Details', `
-                    <div class="row">
-                        <div class="col-sm-4"><strong>IP Address:</strong></div>
-                        <div class="col-sm-8"><code>${ipAddress}</code></div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-sm-4"><strong>MAC Address:</strong></div>
-                        <div class="col-sm-8"><code>${macAddress}</code></div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-sm-4"><strong>Manufacturer:</strong></div>
-                        <div class="col-sm-8" id="manufacturerInfo">
-                            <span class="spinner-border spinner-border-sm" role="status"></span>
-                            <span class="ms-2">Loading...</span>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25">
+                            <span class="text-muted small text-uppercase fw-bold">IP Address</span>
+                            <code class="text-primary">${ipAddress}</code>
                         </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-sm-4"><strong>Hostname:</strong></div>
-                        <div class="col-sm-8">${hostname === 'Unknown' ? '<em>Not set</em>' : hostname}</div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-sm-4"><strong>Network:</strong></div>
-                        <div class="col-sm-8"><small>${network}</small></div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-sm-4"><strong>Expires:</strong></div>
-                        <div class="col-sm-8"><small>${expiry}</small></div>
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25">
+                            <span class="text-muted small text-uppercase fw-bold">MAC Address</span>
+                            <code class="small">${macAddress}</code>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25">
+                            <span class="text-muted small text-uppercase fw-bold">Manufacturer</span>
+                            <span id="manufacturerInfo">
+                                <span class="spinner-border spinner-border-sm text-info" role="status"></span>
+                                <span class="ms-2 text-muted small">Loading...</span>
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25">
+                            <span class="text-muted small text-uppercase fw-bold">Hostname</span>
+                            <span>${hostname === 'Unknown' ? '<em class="text-muted">Not set</em>' : hostname}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25">
+                            <span class="text-muted small text-uppercase fw-bold">Network</span>
+                            <small class="text-muted">${network}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-2">
+                            <span class="text-muted small text-uppercase fw-bold">Expires</span>
+                            <small class="text-muted">${expiry}</small>
+                        </div>
                     </div>
                 `);
                 
@@ -1840,8 +1887,10 @@ class DnsmasqGUI {
         `;
 
         // Insert at the top of the main content area
-        const mainContent = document.querySelector('.col-md-9.col-lg-10');
-        mainContent.insertBefore(alertDiv, mainContent.firstChild);
+        const mainContent = document.querySelector('.content-wrapper') || document.getElementById('main-container') || document.body;
+        if (mainContent) {
+            mainContent.insertBefore(alertDiv, mainContent.firstChild);
+        }
 
         // Auto-dismiss after 5 seconds
         setTimeout(() => {
@@ -1852,69 +1901,80 @@ class DnsmasqGUI {
     }
 
     showModal(title, content) {
-        // Create modal if it doesn't exist
-        let modal = document.getElementById('detailsModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.innerHTML = `
-                <div class="modal fade" id="detailsModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="detailsModalTitle"></h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body" id="detailsModalBody">
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-        }
-
-        // Update modal content
-        document.getElementById('detailsModalTitle').textContent = title;
+        document.getElementById('detailsModalTitle').innerHTML = `<i class="bi bi-info-circle me-2 text-info"></i>${title}`;
         document.getElementById('detailsModalBody').innerHTML = content;
-
-        // Show modal
         const bootstrapModal = new bootstrap.Modal(document.getElementById('detailsModal'));
         bootstrapModal.show();
     }
 
     async restartService() {
-        if (!confirm('Restart DNSmasq service? This will briefly interrupt network services.')) return;
-
-        try {
-            const response = await this.apiCall('/dnsmasq/restart', 'POST');
-            if (response.success) {
-                alert('DNSmasq service restarted successfully!');
-                this.dismissBanner();
-                this.loadDashboard();
+        const modalEl = document.getElementById('restartServiceModal');
+        const modal = new bootstrap.Modal(modalEl);
+        
+        // Clone button to remove stacked listeners
+        const confirmBtn = document.getElementById('confirm-restart-service-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        newConfirmBtn.addEventListener('click', async () => {
+            try {
+                newConfirmBtn.disabled = true;
+                newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Restarting...';
+                
+                const response = await this.apiCall('/dnsmasq/restart', 'POST');
+                if (response.success) {
+                    this.showAlert('success', 'DNSmasq service restarted successfully!');
+                    this.dismissBanner();
+                    modal.hide();
+                    this.loadDashboard();
+                } else {
+                    this.showAlert('danger', 'Failed to restart DNSmasq: ' + (response.error || 'Unknown error'));
+                }
+            } catch (error) {
+                this.showAlert('danger', 'Failed to restart DNSmasq service');
+                console.error(error);
+            } finally {
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = 'Yes, Restart';
             }
-        } catch (error) {
-            alert('Failed to restart DNSmasq service');
-            console.error(error);
-        }
+        });
+
+        modal.show();
     }
 
     async reloadService() {
-        if (!confirm('Reload DNSmasq configuration? This will apply changes without interrupting active connections.')) return;
+        const modalEl = document.getElementById('reloadServiceModal');
+        const modal = new bootstrap.Modal(modalEl);
+        
+        // Clone button to remove stacked listeners
+        const confirmBtn = document.getElementById('confirm-reload-service-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        newConfirmBtn.addEventListener('click', async () => {
+            try {
+                newConfirmBtn.disabled = true;
+                newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Reloading...';
 
-        try {
-            const response = await this.apiCall('/dnsmasq/reload', 'POST');
-            if (response.success) {
-                alert('DNSmasq service reloaded successfully!');
-                this.dismissBanner();
-                this.loadDashboard();
+                const response = await this.apiCall('/dnsmasq/reload', 'POST');
+                if (response.success) {
+                    this.showAlert('success', 'DNSmasq service reloaded successfully!');
+                    this.dismissBanner();
+                    modal.hide();
+                    this.loadDashboard();
+                } else {
+                    this.showAlert('danger', 'Failed to reload DNSmasq: ' + (response.error || 'Unknown error'));
+                }
+            } catch (error) {
+                this.showAlert('danger', 'Failed to reload DNSmasq service');
+                console.error(error);
+            } finally {
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = 'Yes, Reload';
             }
-        } catch (error) {
-            alert('Failed to reload DNSmasq service');
-            console.error(error);
-        }
+        });
+
+        modal.show();
     }
 
     showBanner(message = 'Reload the DNSmasq service to apply recent configuration changes.') {
@@ -2099,6 +2159,7 @@ class DnsmasqGUI {
             if (response.success && response.data.dnsRecords) {
                 // Store the original records for filtering (never overwrite this)
                 this.currentDnsRecords = response.data.dnsRecords;
+                this.currentDomainName = response.data.domainName;
                 
                 // Apply current filters and render the table
                 this.applyDnsFiltersAndRender();
@@ -2150,8 +2211,29 @@ class DnsmasqGUI {
                     <tbody id="dns-records-table-body">`;
 
         records.forEach(record => {
-            const aliases = record.aliases && record.aliases.length > 0 ? 
-                record.aliases.join(', ') : '<span class="text-muted">-</span>';
+            let aliasesArray = record.aliases && record.aliases.length > 0 ? record.aliases : [];
+            const domainName = this.currentDomainName;
+            
+            let displayName = record.name;
+            let displayValue = record.value;
+            
+            if (domainName) {
+                const suffix = '.' + domainName;
+                aliasesArray = aliasesArray.map(alias => 
+                    alias.endsWith(suffix) ? alias.substring(0, alias.length - suffix.length) : alias
+                );
+                
+                if (displayName && displayName.endsWith(suffix)) {
+                    displayName = displayName.substring(0, displayName.length - suffix.length);
+                }
+                
+                if (record.type === 'CNAME' && displayValue && displayValue.endsWith(suffix)) {
+                    displayValue = displayValue.substring(0, displayValue.length - suffix.length);
+                }
+            }
+
+            const aliases = aliasesArray.length > 0 ? 
+                aliasesArray.join(', ') : '<span class="text-muted">-</span>';
             
             // Make MAC address clickable if it exists
             let macAddress;
@@ -2168,8 +2250,8 @@ class DnsmasqGUI {
             html += `
                 <tr>
                     <td><span class="badge bg-primary">${record.type}</span></td>
-                    <td><strong>${record.name}</strong></td>
-                    <td><code class="text-primary">${record.value}</code></td>
+                    <td><strong>${displayName}</strong></td>
+                    <td><code class="text-primary">${displayValue}</code></td>
                     <td>${aliases}</td>
                     <td class="text-muted small">${macAddress}</td>
                     <td>
@@ -3078,9 +3160,13 @@ class DnsmasqGUI {
 
     filterOptions(options) {
         return options.filter(option => {
-            // Tag filter
+            // Tag filter: when a specific tag is selected, include:
+            // 1. Options that match the tag exactly
+            // 2. Options with no tag (global options that apply to all networks)
             if (this.currentOptionFilters.tag) {
-                if (!option.tag || option.tag.toLowerCase() !== this.currentOptionFilters.tag.toLowerCase()) {
+                const matchesTag = option.tag && option.tag.toLowerCase() === this.currentOptionFilters.tag.toLowerCase();
+                const isGlobal = !option.tag || !option.tag.trim();
+                if (!matchesTag && !isGlobal) {
                     return false;
                 }
             }
@@ -3408,8 +3494,29 @@ class DnsmasqGUI {
         }
 
         tableBody.innerHTML = records.map(record => {
-            const aliases = record.aliases && record.aliases.length > 0 ? 
-                record.aliases.join(', ') : '<span class="text-muted">-</span>';
+            let aliasesArray = record.aliases && record.aliases.length > 0 ? record.aliases : [];
+            const domainName = this.currentDomainName;
+            
+            let displayName = record.name;
+            let displayValue = record.value;
+            
+            if (domainName) {
+                const suffix = '.' + domainName;
+                aliasesArray = aliasesArray.map(alias => 
+                    alias.endsWith(suffix) ? alias.substring(0, alias.length - suffix.length) : alias
+                );
+                
+                if (displayName && displayName.endsWith(suffix)) {
+                    displayName = displayName.substring(0, displayName.length - suffix.length);
+                }
+                
+                if (record.type === 'CNAME' && displayValue && displayValue.endsWith(suffix)) {
+                    displayValue = displayValue.substring(0, displayValue.length - suffix.length);
+                }
+            }
+
+            const aliases = aliasesArray.length > 0 ? 
+                aliasesArray.join(', ') : '<span class="text-muted">-</span>';
             
             // Make MAC address clickable if it exists
             let macAddress;
@@ -3426,8 +3533,8 @@ class DnsmasqGUI {
             return `
                 <tr>
                     <td><span class="badge bg-primary">${record.type}</span></td>
-                    <td><strong>${record.name}</strong></td>
-                    <td><code class="text-primary">${record.value}</code></td>
+                    <td><strong>${displayName}</strong></td>
+                    <td><code class="text-primary">${displayValue}</code></td>
                     <td>${aliases}</td>
                     <td class="text-muted small">${macAddress}</td>
                     <td>
@@ -3495,11 +3602,35 @@ class DnsmasqGUI {
 
         // Store original hostname for identification
         document.getElementById('dns-record-id').value = record.name; // Use hostname instead of ID
-        document.getElementById('dns-record-hostname').value = record.name;
-        document.getElementById('dns-record-ip').value = record.value;
+        
+        let editName = record.name;
+        let editValue = record.value;
+        const domainName = this.currentDomainName;
+        
+        if (domainName) {
+            const suffix = '.' + domainName;
+            if (editName && editName.endsWith(suffix)) {
+                editName = editName.substring(0, editName.length - suffix.length);
+            }
+            if (record.type === 'CNAME' && editValue && editValue.endsWith(suffix)) {
+                editValue = editValue.substring(0, editValue.length - suffix.length);
+            }
+        }
+        
+        document.getElementById('dns-record-hostname').value = editName;
+        document.getElementById('dns-record-ip').value = editValue;
         
         // Handle aliases
-        const aliases = record.aliases && record.aliases.length > 0 ? record.aliases.join('\n') : '';
+        let aliasesArray = record.aliases && record.aliases.length > 0 ? record.aliases : [];
+        
+        if (domainName) {
+            const suffix = '.' + domainName;
+            aliasesArray = aliasesArray.map(alias => 
+                alias.endsWith(suffix) ? alias.substring(0, alias.length - suffix.length) : alias
+            );
+        }
+        
+        const aliases = aliasesArray.length > 0 ? aliasesArray.join('\n') : '';
         document.getElementById('dns-record-aliases').value = aliases;
         
         document.getElementById('dns-record-modal-title').textContent = 'Edit DNS Record';
@@ -3584,23 +3715,34 @@ class DnsmasqGUI {
         // Find the DNS record
         const record = this.currentDnsRecords?.find(r => r.id === recordId);
         if (!record) {
-            alert('DNS record not found');
+            this.showAlert('danger', 'DNS record not found');
             return;
         }
 
         // Populate delete modal
         document.getElementById('delete-dns-record-hostname').textContent = record.name;
         document.getElementById('delete-dns-record-ip').textContent = record.value;
-        
-        const aliases = record.aliases && record.aliases.length > 0 ? record.aliases.join(', ') : 'None';
-        document.getElementById('delete-dns-record-aliases').textContent = aliases;
-        
+
+        // Strip domain suffix from aliases (same as table rendering)
+        let aliasesArray = record.aliases && record.aliases.length > 0 ? [...record.aliases] : [];
+        if (this.currentDomainName) {
+            const suffix = '.' + this.currentDomainName;
+            aliasesArray = aliasesArray.map(alias =>
+                alias.endsWith(suffix) ? alias.substring(0, alias.length - suffix.length) : alias
+            );
+        }
+        const aliasesText = aliasesArray.length > 0 ? aliasesArray.join(', ') : 'None';
+        document.getElementById('delete-dns-record-aliases').textContent = aliasesText;
+
+        // Clone confirm button to remove stacked listeners
+        const confirmBtn = document.getElementById('confirm-delete-dns-record-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        newConfirmBtn.addEventListener('click', () => this.confirmDeleteDnsRecord(record.name));
+
         // Show delete modal
         const modal = new bootstrap.Modal(document.getElementById('deleteDnsRecordModal'));
         modal.show();
-        
-        // Setup delete confirmation - use hostname instead of recordId
-        document.getElementById('confirm-delete-dns-record-btn').onclick = () => this.confirmDeleteDnsRecord(record.name);
     }
 
     async confirmDeleteDnsRecord(hostname) {
@@ -3798,7 +3940,7 @@ class DnsmasqGUI {
         // Find the reservation
         const reservation = this.currentReservations?.find(r => r.id === id);
         if (!reservation) {
-            alert('Reservation not found');
+            this.showAlert('danger', 'Reservation not found');
             return;
         }
 
@@ -3807,15 +3949,20 @@ class DnsmasqGUI {
         document.getElementById('delete-reservation-ip').textContent = reservation.ipAddress;
         document.getElementById('delete-reservation-hostname').textContent = reservation.hostname || 'Not set';
         
-        // Show delete modal
-        const modal = new bootstrap.Modal(document.getElementById('deleteReservationModal'));
+        const modalEl = document.getElementById('deleteReservationModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // Clone button to remove any stacked listeners
+        const confirmBtn = document.getElementById('confirm-delete-reservation-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', () => this.confirmDeleteReservation(id, modal));
+
         modal.show();
-        
-        // Setup delete confirmation
-        document.getElementById('confirm-delete-reservation-btn').onclick = () => this.confirmDeleteReservation(id);
     }
 
-    async confirmDeleteReservation(id) {
+    async confirmDeleteReservation(id, modal) {
         try {
             const response = await fetch(`/api/dnsmasq/reservations/${id}`, {
                 method: 'DELETE',
@@ -3827,25 +3974,21 @@ class DnsmasqGUI {
             const result = await response.json();
             
             if (!result.success) {
-                alert(`Error: ${result.error || 'Failed to delete reservation'}`);
+                this.showAlert('danger', result.error || 'Failed to delete reservation');
                 return;
             }
 
             // Success - close modal and refresh
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteReservationModal'));
-            modal.hide();
+            if (modal) modal.hide();
             
             this.loadReservations();
-            this.loadDashboard(); // Refresh dashboard counts
-            
-            alert('Reservation deleted successfully!');
-            
-            // Show banner to reload service
+            this.loadDashboard();
+            this.showAlert('success', 'Reservation deleted successfully!');
             this.showBanner('DHCP reservation deleted. Reload the service to apply changes.');
             
         } catch (error) {
             console.error('Error deleting reservation:', error);
-            alert('Network error occurred while deleting reservation');
+            this.showAlert('danger', 'Network error occurred while deleting reservation');
         }
     }
 
@@ -4077,72 +4220,117 @@ class DnsmasqGUI {
     confirmDeleteRange(id) {
         const range = this.currentRanges?.find(r => r.id === id);
         if (!range) {
-            alert('Range not found');
+            this.showAlert('danger', 'Range not found');
             return;
         }
 
-        // Populate delete modal
+        // Populate modal details
         document.getElementById('delete-range-start').textContent = range.startIp;
         document.getElementById('delete-range-end').textContent = range.endIp;
         document.getElementById('delete-range-tag').textContent = range.tag || 'None';
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('deleteRangeModal'));
+
+        // --- Dependency check ---
+        const tag = range.tag || '';
+        const blockedEl = document.getElementById('delete-range-blocked');
+        const blockedDetails = document.getElementById('delete-range-blocked-details');
+        const confirmBtn = document.getElementById('confirm-delete-range-btn');
+
+        const dependentOptions = (this.allOptions || []).filter(o =>
+            o.tag && tag && o.tag.toLowerCase() === tag.toLowerCase()
+        );
+
+        // Check reservations by IP range
+        const startParts = range.startIp.split('.').map(Number);
+        const endParts = range.endIp.split('.').map(Number);
+        const ipInRange = ip => {
+            const p = ip.split('.').map(Number);
+            for (let i = 0; i < 4; i++) {
+                if (p[i] < startParts[i]) return false;
+                if (p[i] > endParts[i]) return false;
+            }
+            return true;
+        };
+        const dependentReservations = (this.currentReservations || []).filter(r =>
+            r.ipAddress && ipInRange(r.ipAddress)
+        );
+
+        const hasBlocking = (tag && dependentOptions.length > 0) || dependentReservations.length > 0;
+
+        const modalEl = document.getElementById('deleteRangeModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        if (hasBlocking) {
+            const lines = [];
+            if (dependentOptions.length > 0) {
+                lines.push(`<strong>${dependentOptions.length}</strong> DHCP option(s) use the tag <em>${tag}</em>`);
+            }
+            if (dependentReservations.length > 0) {
+                lines.push(`<strong>${dependentReservations.length}</strong> static reservation(s) have IPs in this range`);
+            }
+            blockedDetails.innerHTML = lines.map(l => `<div>• ${l}</div>`).join('');
+            blockedEl.style.display = 'block';
+            confirmBtn.style.display = 'none';
+        } else {
+            blockedEl.style.display = 'none';
+            confirmBtn.style.display = '';
+
+            // Clone button to remove stacked listeners
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.addEventListener('click', () => this.deleteRange(id, modal));
+        }
+
         modal.show();
-        
-        // Setup delete confirmation
-        document.getElementById('confirm-delete-range-btn').onclick = () => this.deleteRange(id);
     }
 
-    async deleteRange(id) {
+    async deleteRange(id, modal) {
         try {
             const response = await fetch(`/api/dnsmasq/ranges/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
+                headers: { 'Authorization': `Bearer ${this.token}` }
             });
 
             const result = await response.json();
-            
+
             if (!result.success) {
-                alert(`Failed to delete range: ${result.error}`);
+                this.showAlert('danger', `Failed to delete range: ${result.error}`);
                 return;
             }
 
-            // Success - close modal and refresh
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteRangeModal'));
-            modal.hide();
-            
+            if (modal) modal.hide();
             this.loadRanges();
-            alert('Range deleted successfully!');
-            
-            // Show banner to reload service
+            this.showAlert('success', 'Range deleted successfully!');
             this.showBanner('DHCP range deleted. Reload the service to apply changes.');
-            
+
         } catch (error) {
             console.error('Error deleting range:', error);
-            alert('Network error occurred while deleting range');
+            this.showAlert('danger', 'Network error occurred while deleting range');
         }
     }
 
     // DHCP Options management methods
     async loadOptions() {
         try {
-            const response = await fetch('/api/dnsmasq/options', {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            });
-            const result = await response.json();
-            
+            const [optionsResponse, configResponse] = await Promise.all([
+                fetch('/api/dnsmasq/options', { headers: { 'Authorization': `Bearer ${this.token}` } }),
+                fetch('/api/dnsmasq/config', { headers: { 'Authorization': `Bearer ${this.token}` } })
+            ]);
+            const result = await optionsResponse.json();
+            const configResult = await configResponse.json();
+
             if (!result.success) {
                 console.error('Failed to load DHCP options:', result.error);
                 return;
             }
-            
+
             this.allOptions = result.data || [];
             this.currentOptions = result.data || [];
+
+            // Keep currentDhcpRanges fresh so the tag dropdown in the option modal is populated
+            if (configResult.success) {
+                this.currentDhcpRanges = configResult.data.dhcpRanges || [];
+            }
+
             this.populateOptionsTagFilter();
             this.applyOptionFiltersAndRender();
             this.updateOptionsCount();
@@ -4212,6 +4400,25 @@ class DnsmasqGUI {
         }
     }
 
+    populateOptionTagSelect(selectedTag) {
+        const select = document.getElementById('option-tag');
+        if (!select) return;
+
+        // Build unique sorted tag list from DHCP ranges
+        const tags = [...new Set(
+            (this.currentDhcpRanges || []).map(r => r.tag).filter(Boolean)
+        )].sort();
+
+        select.innerHTML = '<option value="">All Networks</option>';
+        tags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            opt.textContent = tag;
+            if (tag === selectedTag) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
     showAddOptionModal() {
         // Clear form
         document.getElementById('option-form').reset();
@@ -4221,10 +4428,9 @@ class DnsmasqGUI {
         document.getElementById('option-error').style.display = 'none';
         document.getElementById('option-custom-number').style.display = 'none';
         
-        // Auto-populate tag if currently filtering by tag
-        if (this.currentOptionFilters.tag) {
-            document.getElementById('option-tag').value = this.currentOptionFilters.tag;
-        }
+        // Auto-populate tag dropdown
+        const preselectedTag = this.currentOptionFilters?.tag || '';
+        this.populateOptionTagSelect(preselectedTag);
         
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('optionModal'));
@@ -4277,6 +4483,9 @@ class DnsmasqGUI {
             customField.required = false;
         }
         
+        // Populate tag dropdown and select current value
+        this.populateOptionTagSelect(option.tag || '');
+        
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('optionModal'));
         modal.show();
@@ -4309,7 +4518,8 @@ class DnsmasqGUI {
         const optionNumberField = document.getElementById('option-number');
         const customNumberField = document.getElementById('option-custom-number');
         const value = document.getElementById('option-value').value.trim();
-        const tag = document.getElementById('option-tag').value.trim();
+        const tagRaw = document.getElementById('option-tag').value;
+        const tag = tagRaw === '' ? '' : tagRaw; // empty string = All Networks = no tag
         const active = document.getElementById('option-active').checked;
 
         let optionNumber;
@@ -4377,7 +4587,7 @@ class DnsmasqGUI {
     confirmDeleteOption(id) {
         const option = this.currentOptions?.find(o => o.id === id);
         if (!option) {
-            alert('Option not found');
+            this.showAlert('danger', 'Option not found');
             return;
         }
 
@@ -4386,15 +4596,20 @@ class DnsmasqGUI {
         document.getElementById('delete-option-value').textContent = option.value;
         document.getElementById('delete-option-tag').textContent = option.tag || 'All clients';
         
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('deleteOptionModal'));
+        const modalEl = document.getElementById('deleteOptionModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // Clone button to remove any stacked listeners
+        const confirmBtn = document.getElementById('confirm-delete-option-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', () => this.deleteOption(id, modal));
+
         modal.show();
-        
-        // Setup delete confirmation
-        document.getElementById('confirm-delete-option-btn').onclick = () => this.deleteOption(id);
     }
 
-    async deleteOption(id) {
+    async deleteOption(id, modal) {
         try {
             const response = await fetch(`/api/dnsmasq/options/${id}`, {
                 method: 'DELETE',
@@ -4406,23 +4621,20 @@ class DnsmasqGUI {
             const result = await response.json();
             
             if (!result.success) {
-                alert(`Failed to delete option: ${result.error}`);
+                this.showAlert('danger', `Failed to delete option: ${result.error}`);
                 return;
             }
 
             // Success - close modal and refresh
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteOptionModal'));
-            modal.hide();
+            if (modal) modal.hide();
             
             this.loadOptions();
-            alert('Option deleted successfully!');
-            
-            // Show banner to reload service
+            this.showAlert('success', 'Option deleted successfully!');
             this.showBanner('DHCP option deleted. Reload the service to apply changes.');
             
         } catch (error) {
             console.error('Error deleting option:', error);
-            alert('Network error occurred while deleting option');
+            this.showAlert('danger', 'Network error occurred while deleting option');
         }
     }
 
@@ -4591,6 +4803,14 @@ function convertToStatic(macAddress, hostname, ipAddress) {
 
 function showLeaseDetails(macAddress) {
     app.showLeaseDetails(macAddress);
+}
+
+function editStaticReservation(macAddress, hostname, ipAddress) {
+    app.editStaticReservation(macAddress, hostname, ipAddress);
+}
+
+function deleteStaticReservation(macAddress, hostname, ipAddress) {
+    app.deleteStaticReservation(macAddress, hostname, ipAddress);
 }
 
 function restartService() {
