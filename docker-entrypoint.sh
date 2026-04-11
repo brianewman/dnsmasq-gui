@@ -13,6 +13,23 @@ cleanup() {
 # Trap signals
 trap cleanup INT TERM
 
+# Bootstrap configuration if files are missing (first run)
+if [ ! -f /app/configs/dnsmasq.conf ]; then
+    echo "📦 Initializing default configuration files..."
+    cp -rn /app/examples/configs/* /app/configs/
+fi
+
+if [ ! -f /app/data/oui-database.json ]; then
+    echo "📦 Initializing default data files..."
+    cp -rn /app/examples/data/* /app/data/
+fi
+
+# Link configuration to system locations
+ln -sf /app/configs/dnsmasq.conf /etc/dnsmasq.conf
+ln -sf /app/configs/dnsmasq.d /etc/dnsmasq.d
+ln -sf /app/configs/hosts /etc/dnsmasq.hosts
+ln -sf /app/configs/chrony.conf /etc/chrony/chrony.conf
+
 # Start dnsmasq in the background
 echo "🌐 Starting DNSmasq..."
 dnsmasq --keep-in-foreground &

@@ -36,7 +36,7 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 COPY package*.json ./
-COPY data/ ./data/
+COPY examples/ ./examples/
 
 # Install production dependencies only
 RUN npm install --only=production
@@ -49,8 +49,8 @@ RUN chmod +x docker-entrypoint.sh
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Required directories for dnsmasq
-RUN mkdir -p /etc/dnsmasq.d /var/lib/dhcp /var/log
+# Required directories
+RUN mkdir -p /app/configs /app/data /etc/dnsmasq.d /var/log
 
 # Expose ports (for documentation purposes, as we'll use network_mode: host)
 # 53: DNS

@@ -11,12 +11,9 @@ services:
     volumes:
       # Data persistence for DNS, DHCP, and NTP
       - ./data:/app/data
-      - ./configs/dnsmasq.conf:/etc/dnsmasq.conf
-      - ./configs/dnsmasq.d:/etc/dnsmasq.d
-      - ./configs/hosts:/etc/dnsmasq.hosts
-      - ./configs/chrony.conf:/etc/chrony/chrony.conf
+      - ./configs:/app/configs
       - ./logs:/var/log/dnsmasq-gui
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - NTP_CONFIG_FILE=/etc/chrony/chrony.conf
+      - NTP_CONFIG_FILE=/app/configs/chrony.conf

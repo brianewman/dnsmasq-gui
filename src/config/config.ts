@@ -7,16 +7,16 @@ export const config = {
   
   // DNSmasq specific configuration
   dnsmasq: {
-    configPath: '/etc/dnsmasq.conf',
+    configPath: '/app/configs/dnsmasq.conf',
     hostsPath: '/etc/hosts',
-    hostsFile: '/etc/dnsmasq.hosts',
-    leasesPath: '/var/lib/misc/dnsmasq.leases',
-    additionalConfigDir: '/etc/dnsmasq.d',
-    rangesConfigFile: '/etc/dnsmasq.d/dnsmasq-ranges.conf',
-    optionsConfigFile: '/etc/dnsmasq.d/dnsmasq-options.conf',
-    staticLeasesConfigFile: '/etc/dnsmasq.d/dnsmasq-static-leases.conf',
-    cnamesConfigFile: '/etc/dnsmasq.d/dnsmasq-cnames.conf',
-    advancedConfigFile: '/etc/dnsmasq.d/dnsmasq-advanced.conf',
+    hostsFile: '/app/configs/hosts',
+    leasesPath: '/app/data/dnsmasq.leases',
+    additionalConfigDir: '/app/configs/dnsmasq.d',
+    rangesConfigFile: '/app/configs/dnsmasq.d/dnsmasq-ranges.conf',
+    optionsConfigFile: '/app/configs/dnsmasq.d/dnsmasq-options.conf',
+    staticLeasesConfigFile: '/app/configs/dnsmasq.d/dnsmasq-static-leases.conf',
+    cnamesConfigFile: '/app/configs/dnsmasq.d/dnsmasq-cnames.conf',
+    advancedConfigFile: '/app/configs/dnsmasq.d/dnsmasq-advanced.conf',
     
     // Default network configuration
     defaultDhcpRange: '192.168.1.100,192.168.1.200,24h',
