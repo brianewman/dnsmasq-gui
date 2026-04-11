@@ -50,7 +50,7 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 # Required directories
-RUN mkdir -p /app/configs /app/data /etc/dnsmasq.d /var/log
+RUN mkdir -p /app/configs /app/data /var/log
 
 # Expose ports (for documentation purposes, as we'll use network_mode: host)
 # 53: DNS

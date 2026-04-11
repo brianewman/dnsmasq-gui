@@ -26,7 +26,7 @@ fi
 
 # Link configuration to system locations
 ln -sf /app/configs/dnsmasq.conf /etc/dnsmasq.conf
-ln -sf /app/configs/dnsmasq.d /etc/dnsmasq.d
+rm -rf /etc/dnsmasq.d && ln -sf /app/configs/dnsmasq.d /etc/dnsmasq.d
 ln -sf /app/configs/hosts /etc/dnsmasq.hosts
 ln -sf /app/configs/chrony.conf /etc/chrony/chrony.conf
 
