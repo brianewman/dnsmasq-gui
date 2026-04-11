@@ -301,6 +301,9 @@ export class DnsmasqService {
         if (trimmedLine === 'bind-interfaces') {
           advancedSettings.bindInterfaces = true;
         }
+        if (trimmedLine === 'bind-dynamic') {
+          advancedSettings.bindDynamic = true;
+        }
         if (trimmedLine === 'log-queries') {
           advancedSettings.logQueries = true;
         }
@@ -721,6 +724,9 @@ export class DnsmasqService {
       // Network Interface Settings
       if (newConfig.bindInterfaces) {
         configLines.push('bind-interfaces');
+      }
+      if (newConfig.bindDynamic) {
+        configLines.push('bind-dynamic');
       }
       
       // Add enabled interfaces

@@ -51,10 +51,6 @@
                     <i class="bi bi-globe"></i>
                     <span>DNS Records</span>
                 </a>
-                <a href="#network" class="nav-link-custom" data-section="network">
-                    <i class="bi bi-diagram-3"></i>
-                    <span>Interfaces</span>
-                </a>
                 <a href="#ntp" class="nav-link-custom" data-section="ntp">
                     <i class="bi bi-clock-history"></i>
                     <span>Network Time</span>
@@ -483,16 +479,6 @@
                     </div>
                 </div>
 
-                <!-- Network Interfaces Section -->
-                <div id="network-section" class="content-section" style="display: none;">
-                    <h2>Network Interfaces</h2>
-                    <div class="card">
-                        <div class="card-body">
-                            <div id="network-interfaces-container"></div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- NTP Section -->
                 <div id="ntp-section" class="content-section" style="display: none;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -667,9 +653,16 @@
                                             <div class="form-text">Faster address allocation and lease recovery.</div>
                                         </div>
 
-                                        <div class="form-check mb-3">
+                                        <div class="form-check mb-2">
                                             <input class="form-check-input" type="checkbox" id="bind-interfaces">
-                                            <label class="form-check-label" for="bind-interfaces">Bind to Interfaces (Don't listen on all)</label>
+                                            <label class="form-check-label fw-bold" for="bind-interfaces">Bind to Interfaces</label>
+                                            <div class="form-text mt-0">Binds strictly to selected interfaces. Required if the host runs multiple DNS servers.</div>
+                                        </div>
+
+                                        <div class="form-check mb-4">
+                                            <input class="form-check-input" type="checkbox" id="bind-dynamic">
+                                            <label class="form-check-label fw-bold" for="bind-dynamic">Bind Dynamic</label>
+                                            <div class="form-text mt-0">Dynamically tracks and listens on all active interfaces. Recommended.</div>
                                         </div>
 
                                         <div class="row g-3 mb-4">

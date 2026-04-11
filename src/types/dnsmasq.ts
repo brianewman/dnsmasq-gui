@@ -59,6 +59,7 @@ export interface DnsmasqConfig {
   // Network interfaces
   interfaces: NetworkInterface[];
   bindInterfaces: boolean;
+  bindDynamic?: boolean;
   
   // DHCP settings
   dhcpRanges: DhcpRange[];

@@ -4,11 +4,28 @@ import { DnsmasqConfig, DhcpLease, StaticLease } from '../types/dnsmasq';
 import { DnsmasqService } from '../services/dnsmasqService';
 import { OuiService } from '../services/ouiService';
 import fetch from 'node-fetch';
+import * as os from 'os';
 
 export const dnsmasqRoutes = Router();
 
 const dnsmasqService = new DnsmasqService();
 const ouiService = new OuiService();
+
+// Get system network interfaces
+dnsmasqRoutes.get('/interfaces', (req: AuthenticatedRequest, res) => {
+  try {
+    const interfaces = os.networkInterfaces();
+    res.json({
+      success: true,
+      data: Object.keys(interfaces)
+    } as ApiResponse<string[]>);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve network interfaces'
+    } as ApiResponse);
+  }
+});
 
 // Get current dnsmasq configuration
 dnsmasqRoutes.get('/config', async (req: AuthenticatedRequest, res) => {

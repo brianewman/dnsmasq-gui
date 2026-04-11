@@ -2356,6 +2356,7 @@ class DnsmasqGUI {
             
             // Network Interface Settings
             document.getElementById('bind-interfaces').checked = config.bindInterfaces || false;
+            document.getElementById('bind-dynamic').checked = config.bindDynamic || false;
             
             // Logging Settings
             document.getElementById('log-queries').checked = config.logQueries || false;
@@ -2368,7 +2369,7 @@ class DnsmasqGUI {
             this.loadUpstreamServers(config.upstreamServers || []);
             
             // Load network interfaces
-            this.loadNetworkInterfaces(config.interfaces || []);
+            await this.loadNetworkInterfaces(config.interfaces || []);
             
         } catch (error) {
             console.error('Error loading advanced settings:', error);
@@ -2432,6 +2433,7 @@ class DnsmasqGUI {
                 
                 // Network Interface Settings
                 bindInterfaces: document.getElementById('bind-interfaces').checked,
+                bindDynamic: document.getElementById('bind-dynamic').checked,
                 
                 // Logging Settings
                 logQueries: document.getElementById('log-queries').checked,
@@ -2526,27 +2528,49 @@ class DnsmasqGUI {
             .filter(value => value !== '');
     }
 
-    // Load network interfaces
-    loadNetworkInterfaces(interfaces) {
+    // Load network interfaces dynamically from host and merge with saved config
+    async loadNetworkInterfaces(savedInterfaces) {
         const container = document.getElementById('network-interfaces-container');
-        container.innerHTML = '';
+        container.innerHTML = '<div class="text-white text-opacity-50 small"><i class="spinner-border spinner-border-sm me-2"></i>Loading interfaces...</div>';
         
-        // Get available network interfaces (this would normally come from the server)
-        const availableInterfaces = ['eth0', 'wlan0', 'br0', 'enp0s3', 'wlp2s0'];
-        
-        availableInterfaces.forEach(iface => {
-            const div = document.createElement('div');
-            div.className = 'form-check mb-2';
-            div.innerHTML = `
-                <input class="form-check-input network-interface" type="checkbox" 
-                       value="${iface}" id="interface-${iface}" 
-                       ${interfaces.includes(iface) ? 'checked' : ''}>
-                <label class="form-check-label" for="interface-${iface}">
-                    ${iface}
-                </label>
-            `;
-            container.appendChild(div);
-        });
+        try {
+            // Get available network interfaces from the server
+            const response = await this.apiCall('/dnsmasq/interfaces');
+            const availableInterfaces = response.success && response.data ? response.data : ['eth0', 'lo'];
+            
+            // Collect saved interface names
+            const savedInterfaceNames = savedInterfaces.map(i => typeof i === 'string' ? i : i.name);
+            
+            // Combine host interfaces and any saved ones that might be missing on the host
+            const allInterfaces = [...new Set([...availableInterfaces, ...savedInterfaceNames])].sort();
+            
+            container.innerHTML = '';
+            allInterfaces.forEach(iface => {
+                const isSelected = savedInterfaceNames.includes(iface);
+                const isMissing = !availableInterfaces.includes(iface);
+                
+                const div = document.createElement('div');
+                div.className = 'form-check mb-2';
+                
+                let labelContent = iface;
+                if (isMissing && isSelected) {
+                    labelContent += ' <span class="badge bg-danger ms-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Not Found</span>';
+                }
+                
+                div.innerHTML = `
+                    <input class="form-check-input network-interface" type="checkbox" 
+                           value="${iface}" id="interface-${iface}" 
+                           ${isSelected ? 'checked' : ''}>
+                    <label class="form-check-label d-flex align-items-center" for="interface-${iface}">
+                        ${labelContent}
+                    </label>
+                `;
+                container.appendChild(div);
+            });
+        } catch (error) {
+            console.error('Failed to load network interfaces:', error);
+            container.innerHTML = '<div class="text-danger small"><i class="bi bi-exclamation-triangle me-2"></i>Failed to load system interfaces</div>';
+        }
     }
 
     // Collect selected network interfaces
