@@ -1880,10 +1880,20 @@ class DnsmasqGUI {
 
         // Create new alert
         const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show shadow-sm border-0`;
+        
+        // Handle multi-line messages (like dnsmasq errors)
+        const isMultiLine = message.includes('\n');
+        const formattedMessage = isMultiLine 
+            ? `<div class="fw-bold mb-2">Service Error Detail:</div><pre class="bg-black bg-opacity-25 p-3 rounded small text-white-50 border border-white border-opacity-10" style="max-height: 200px; overflow-y: auto;">${message}</pre>`
+            : message;
+
         alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="d-flex align-items-start">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-3 fs-5"></i>
+                <div class="flex-grow-1">${formattedMessage}</div>
+                <button type="button" class="btn-close ms-3" data-bs-dismiss="alert"></button>
+            </div>
         `;
 
         // Insert at the top of the main content area
@@ -1919,19 +1929,22 @@ class DnsmasqGUI {
         newConfirmBtn.addEventListener('click', async () => {
             try {
                 newConfirmBtn.disabled = true;
-                newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Restarting...';
+                newConfirmBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Verifying...';
                 
+                // Detailed status updates for the user
                 const response = await this.apiCall('/dnsmasq/restart', 'POST');
                 if (response.success) {
                     this.showAlert('success', 'DNSmasq service restarted successfully!');
                     this.dismissBanner();
                     modal.hide();
-                    this.loadDashboard();
+                    
+                    // Trigger immediate dashboard refresh
+                    setTimeout(() => this.loadDashboard(), 500);
                 } else {
-                    this.showAlert('danger', 'Failed to restart DNSmasq: ' + (response.error || 'Unknown error'));
+                    this.showAlert('danger', response.error || 'Failed to restart DNSmasq');
                 }
             } catch (error) {
-                this.showAlert('danger', 'Failed to restart DNSmasq service');
+                this.showAlert('danger', 'Failed to restart DNSmasq service: ' + (error.message || 'Unknown error'));
                 console.error(error);
             } finally {
                 newConfirmBtn.disabled = false;
@@ -1954,19 +1967,21 @@ class DnsmasqGUI {
         newConfirmBtn.addEventListener('click', async () => {
             try {
                 newConfirmBtn.disabled = true;
-                newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Reloading...';
+                newConfirmBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Verifying...';
 
                 const response = await this.apiCall('/dnsmasq/reload', 'POST');
                 if (response.success) {
                     this.showAlert('success', 'DNSmasq service reloaded successfully!');
                     this.dismissBanner();
                     modal.hide();
-                    this.loadDashboard();
+                    
+                    // Trigger immediate dashboard refresh
+                    setTimeout(() => this.loadDashboard(), 500);
                 } else {
-                    this.showAlert('danger', 'Failed to reload DNSmasq: ' + (response.error || 'Unknown error'));
+                    this.showAlert('danger', response.error || 'Failed to reload DNSmasq');
                 }
             } catch (error) {
-                this.showAlert('danger', 'Failed to reload DNSmasq service');
+                this.showAlert('danger', 'Failed to reload DNSmasq service: ' + (error.message || 'Unknown error'));
                 console.error(error);
             } finally {
                 newConfirmBtn.disabled = false;

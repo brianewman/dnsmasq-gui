@@ -722,11 +722,11 @@ export class DnsmasqService {
       // Lease time is configured per dhcp-range in the ranges configuration file
       
       // Network Interface Settings
-      if (newConfig.bindInterfaces) {
-        configLines.push('bind-interfaces');
-      }
+      // Note: bind-interfaces and bind-dynamic are mutually exclusive in practice
       if (newConfig.bindDynamic) {
         configLines.push('bind-dynamic');
+      } else if (newConfig.bindInterfaces) {
+        configLines.push('bind-interfaces');
       }
       
       // Add enabled interfaces
@@ -1098,52 +1098,63 @@ export class DnsmasqService {
   async restart(): Promise<void> {
     console.log('Starting DNSmasq restart operation...');
     try {
-      // Only skip on Windows development environment, not on Linux
       if (process.platform === 'win32') {
         console.log('Windows development mode: Simulating DNSmasq restart');
         return;
       }
+
+      // 1. Verify configuration first
+      const validation = await this.verifyConfig();
+      if (!validation.valid) {
+        throw new Error(`Configuration invalid: ${validation.output}`);
+      }
       
-      // Restart dnsmasq process in Docker
-      // In Docker, we can't use systemctl. We kill the process and restart it.
+      // 2. Restart dnsmasq process in Docker
       await execAsync('pkill dnsmasq || true');
       
-      // Start dnsmasq again in background
-      // Use the same config and parameters as docker-entrypoint.sh
+      // 3. Start dnsmasq again in background
       await execAsync('dnsmasq --keep-in-foreground &');
       
-      console.log('DNSmasq service restarted successfully via process signal');
-      
+      // 4. Wait a moment and check if it's still running
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const status = await this.getStatus();
+      if (status.status !== 'running') {
+        throw new Error('Service failed to start after restart. Check logs for details.');
+      }
+
+      console.log('DNSmasq service restarted successfully');
     } catch (error: any) {
       console.log('Failed to restart dnsmasq service:', error.message);
-      throw new Error(`Failed to restart DNSmasq service: ${error.message}`);
+      throw new Error(error.message);
     }
   }
 
   async reload(): Promise<void> {
     console.log('Starting DNSmasq reload operation...');
     try {
-      // Only skip on Windows development environment, not on Linux
       if (process.platform === 'win32') {
         console.log('Windows development mode: Simulating DNSmasq reload');
         return;
       }
       
-      // Reload dnsmasq configuration via SIGHUP
-      // This is the standard way to reload dnsmasq without killing the process
+      // 1. Verify configuration first
+      const validation = await this.verifyConfig();
+      if (!validation.valid) {
+        throw new Error(`Configuration invalid: ${validation.output}`);
+      }
+
+      // 2. Reload dnsmasq configuration via SIGHUP
       await execAsync('pkill -HUP dnsmasq');
       
       console.log('DNSmasq service reloaded successfully via SIGHUP');
-      
     } catch (error: any) {
       console.log('Failed to reload dnsmasq service:', error.message);
-      throw new Error(`Failed to reload DNSmasq service: ${error.message}`);
+      throw new Error(error.message);
     }
   }
 
   async getStatus(): Promise<any> {
     try {
-      // Only skip on Windows development environment
       if (process.platform === 'win32') {
         return {
           status: 'running',
@@ -1152,11 +1163,10 @@ export class DnsmasqService {
         };
       }
       
-      // Alternative method for Docker/Linux without systemctl: check if dnsmasq process is running
       try {
-        const { stdout: psOutput } = await execAsync('pgrep -f dnsmasq');
+        // Use -x for exact match to avoid matching the dnsmasq-gui node process
+        const { stdout: psOutput } = await execAsync('pgrep -x dnsmasq');
         if (psOutput.trim()) {
-          // Get process start time for uptime
           let uptime = 'Unknown';
           try {
             const pid = psOutput.trim().split('\n')[0];
@@ -1179,78 +1189,46 @@ export class DnsmasqService {
           };
         }
       } catch (error: any) {
-        console.log('Dnsmasq is not running:', error.message);
+        // pgrep returns 1 if no process found
+        return {
+          status: 'stopped',
+          uptime: '0s',
+          details: 'DNSmasq process not found'
+        };
       }
-      
+
       return {
         status: 'stopped',
-        uptime: null,
+        uptime: '0s',
         details: 'DNSmasq process not found'
       };
     } catch (error: any) {
-      console.log('Failed to get dnsmasq status via systemctl, trying alternative methods:', error.message);
-      
-      // Alternative method: check if dnsmasq process is running
-      try {
-        const { stdout: psOutput } = await execAsync('pgrep -f dnsmasq');
-        if (psOutput.trim()) {
-          // Try to get process start time for uptime
-          let uptime = 'Unknown';
-          try {
-            const pid = psOutput.trim().split('\n')[0];
-            const { stdout: psDetails } = await execAsync(`ps -o pid,lstart -p ${pid} --no-headers`);
-            if (psDetails.trim()) {
-              const startTimeStr = psDetails.trim().substring(psDetails.indexOf(' ') + 1);
-              const startTime = new Date(startTimeStr);
-              const now = new Date();
-              const uptimeMs = now.getTime() - startTime.getTime();
-              uptime = this.formatUptime(uptimeMs);
-            }
-          } catch (psDetailsError) {
-            // Uptime unavailable, but service is running
-          }
-          
-          return {
-            status: 'running',
-            uptime: uptime,
-            details: 'DNSmasq process detected via pgrep'
-          };
-        } else {
-          return {
-            status: 'stopped',
-            uptime: null,
-            details: 'No DNSmasq process found'
-          };
-        }
-      } catch (psError) {
-        // Final fallback: check if port 53 is in use
-        try {
-          const { stdout: netstatOutput } = await execAsync('netstat -ln | grep ":53 "');
-          const isRunning = netstatOutput.includes(':53');
-          return {
-            status: isRunning ? 'running' : 'stopped',
-            uptime: isRunning ? 'Unknown' : null,
-            details: 'Status determined by port 53 usage'
-          };
-        } catch (netstatError) {
-          return {
-            status: 'unknown',
-            uptime: null,
-            error: 'Could not determine service status - all methods failed'
-          };
-        }
-      }
+      console.log('Final fallback error in getStatus:', error.message);
+      return {
+        status: 'error',
+        uptime: '0s',
+        details: 'Service status check failed: ' + error.message
+      };
     }
   }
 
-  private async validateConfig(): Promise<void> {
+  async verifyConfig(): Promise<{ valid: boolean, output: string }> {
     try {
-      // Try to validate the config without sudo first
-      await execAsync('dnsmasq --test');
+      if (process.platform === 'win32') {
+        return { valid: true, output: 'Simulated validation on Windows' };
+      }
+      
+      // dnsmasq --test returns 0 if config is valid, non-zero otherwise
+      const { stderr } = await execAsync('dnsmasq --test');
+      return { 
+        valid: true, 
+        output: stderr || 'Configuration syntax OK' 
+      };
     } catch (error: any) {
-      console.log('Config validation may require elevated permissions:', error.message);
-      // Don't throw error for validation - just log it
-      console.log('Skipping config validation due to permission restrictions');
+      return { 
+        valid: false, 
+        output: error.stderr || error.message || 'Unknown configuration error' 
+      };
     }
   }
 
