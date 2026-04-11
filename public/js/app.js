@@ -1144,10 +1144,8 @@ class DnsmasqGUI {
     }
     
     applyFiltersAndRender() {
-        if (this.currentLeases.length === 0) return;
-        
-        // First apply filters
-        let filteredLeases = this.filterLeases(this.currentLeases);
+        // Apply filters even if currentLeases is empty to allow renderLeases([]) to show the "no leases" message
+        let filteredLeases = this.filterLeases(this.currentLeases || []);
         
         // Then apply sorting if any
         if (this.currentSort.column) {
