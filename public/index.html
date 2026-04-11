@@ -829,6 +829,30 @@
         </div>
     </div>
 
+    <!-- Delete Lease Confirmation Modal -->
+    <div class="modal fade" id="deleteLeaseModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered border-0">
+            <div class="modal-content card overflow-hidden shadow-lg border-danger border-opacity-25 p-4 text-center">
+                <div class="modal-body p-0">
+                    <i class="bi bi-eraser-fill text-danger fs-1 mb-3 d-block"></i>
+                    <h5 class="mb-2">Delete Dynamic Lease?</h5>
+                    <div class="alert alert-warning border-0 small py-2 mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Service will briefly restart.
+                    </div>
+                    <p class="text-muted small mb-1">Removing lease for:</p>
+                    <p class="mb-0 small"><strong>IP:</strong> <code id="delete-lease-ip"></code></p>
+                    <p class="mb-0 small"><strong>MAC:</strong> <code id="delete-lease-mac"></code></p>
+                    <p class="mb-4 small"><strong>Hostname:</strong> <span id="delete-lease-hostname"></span></p>
+                </div>
+                <div class="modal-footer border-0 p-0 justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger px-4 shadow-sm" id="confirm-delete-lease-btn">Delete Lease</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Lease Details Modal -->
     <div class="modal fade" id="detailsModal" tabindex="-1">
         <div class="modal-dialog border-0">

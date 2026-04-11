@@ -1022,6 +1022,14 @@ class DnsmasqGUI {
                 staticBtn.innerHTML = '<i class="bi bi-bookmark"></i> Make Static';
                 staticBtn.onclick = () => this.convertToStatic(lease.macAddress, lease.hostname || '', lease.ipAddress);
                 btnGroup.appendChild(staticBtn);
+
+                // Delete Dynamic Lease Button
+                const deleteLeaseBtn = document.createElement('button');
+                deleteLeaseBtn.className = 'btn btn-sm btn-outline-danger';
+                deleteLeaseBtn.title = 'Delete dynamic lease (requires service restart)';
+                deleteLeaseBtn.innerHTML = '<i class="bi bi-eraser"></i>';
+                deleteLeaseBtn.onclick = () => this.confirmDeleteLease(lease.macAddress, lease.hostname || '', lease.ipAddress);
+                btnGroup.appendChild(deleteLeaseBtn);
             }
 
             // Details Button
@@ -1704,6 +1712,46 @@ class DnsmasqGUI {
         // Show the reservation modal
         const reservationModal = new bootstrap.Modal(document.getElementById('reservationModal'));
         reservationModal.show();
+    }
+
+    confirmDeleteLease(macAddress, hostname, ipAddress) {
+        // Populate deletion modal
+        document.getElementById('delete-lease-mac').textContent = macAddress;
+        document.getElementById('delete-lease-ip').textContent = ipAddress;
+        document.getElementById('delete-lease-hostname').textContent = hostname || 'Not set';
+
+        const modalEl = document.getElementById('deleteLeaseModal');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // Clone button to remove previous listeners
+        const confirmBtn = document.getElementById('confirm-delete-lease-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener('click', async () => {
+            try {
+                newConfirmBtn.disabled = true;
+                newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Deleting...';
+                
+                const response = await this.apiCall(`/dnsmasq/leases/${macAddress}`, 'DELETE');
+                if (response.success) {
+                    this.showAlert('success', 'DHCP lease deleted successfully!');
+                    modal.hide();
+                    this.loadLeases();
+                    this.loadDashboard();
+                } else {
+                    this.showAlert('danger', response.error || 'Failed to delete lease');
+                }
+            } catch (error) {
+                this.showAlert('danger', 'Error occurred while deleting lease');
+                console.error(error);
+            } finally {
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = 'Delete Lease';
+            }
+        });
+
+        modal.show();
     }
 
     deleteStaticReservation(macAddress, hostname, ipAddress) {
@@ -4183,6 +4231,7 @@ class DnsmasqGUI {
         document.getElementById('range-id').value = '';
         document.getElementById('range-active').checked = true; // Default to active
         document.getElementById('range-modal-title').textContent = 'Add DHCP Range';
+        document.getElementById('save-range-btn').textContent = 'Create Range';
         document.getElementById('range-error').style.display = 'none';
         
         // Show modal
@@ -4210,6 +4259,7 @@ class DnsmasqGUI {
         document.getElementById('range-netmask').value = range.netmask || '255.255.255.0';
         document.getElementById('range-active').checked = range.active !== false;
         document.getElementById('range-modal-title').textContent = 'Edit DHCP Range';
+        document.getElementById('save-range-btn').textContent = 'Update Range';
         document.getElementById('range-error').style.display = 'none';
         
         // Show modal

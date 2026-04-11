@@ -1212,6 +1212,55 @@ export class DnsmasqService {
     }
   }
 
+  async deleteLease(macAddress: string): Promise<void> {
+    console.log(`Starting DHCP lease deletion for MAC: ${macAddress}`);
+    try {
+      if (process.platform === 'win32') {
+        console.log('Windows development mode: Simulating lease deletion');
+        return;
+      }
+
+      // 1. Stop dnsmasq to safely edit the leases file
+      // dnsmasq periodically writes to this file, so it's best to stop it
+      await execAsync('pkill dnsmasq || true');
+      
+      // 2. Read and modify the leases file
+      if (await fs.pathExists(this.leasesPath)) {
+        const content = await fs.readFile(this.leasesPath, 'utf-8');
+        const lines = content.split('\n');
+        const filteredLines = lines.filter(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          const parts = trimmed.split(' ');
+          // Lease file format: expiry mac ip hostname clientid
+          return parts[1] !== macAddress;
+        });
+        
+        await fs.writeFile(this.leasesPath, filteredLines.join('\n') + (filteredLines.length > 0 ? '\n' : ''));
+        console.log(`Lease for ${macAddress} removed from file`);
+      }
+
+      // 3. Restart the service
+      await execAsync('dnsmasq --keep-in-foreground &');
+      
+      // 4. Wait for it to stabilize
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const status = await this.getStatus();
+      if (status.status !== 'running') {
+        throw new Error('Service failed to start after lease deletion. Check configuration.');
+      }
+
+      console.log('DHCP lease deleted and service restarted successfully');
+    } catch (error: any) {
+      console.log('Failed to delete DHCP lease:', error.message);
+      // Try to restart if it was stopped
+      try {
+        await execAsync('dnsmasq --keep-in-foreground &');
+      } catch (e) {}
+      throw new Error(`Failed to delete DHCP lease: ${error.message}`);
+    }
+  }
+
   async verifyConfig(): Promise<{ valid: boolean, output: string }> {
     try {
       if (process.platform === 'win32') {
