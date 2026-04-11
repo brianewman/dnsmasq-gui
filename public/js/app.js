@@ -1902,12 +1902,14 @@ class DnsmasqGUI {
             mainContent.insertBefore(alertDiv, mainContent.firstChild);
         }
 
-        // Auto-dismiss after 5 seconds
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
+        // Auto-dismiss after 5 seconds (except for errors)
+        if (type !== 'danger') {
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
     }
 
     showModal(title, content) {
@@ -1918,78 +1920,106 @@ class DnsmasqGUI {
     }
 
     async restartService() {
-        const modalEl = document.getElementById('restartServiceModal');
-        const modal = new bootstrap.Modal(modalEl);
-        
-        // Clone button to remove stacked listeners
-        const confirmBtn = document.getElementById('confirm-restart-service-btn');
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        
-        newConfirmBtn.addEventListener('click', async () => {
-            try {
-                newConfirmBtn.disabled = true;
-                newConfirmBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Verifying...';
-                
-                // Detailed status updates for the user
-                const response = await this.apiCall('/dnsmasq/restart', 'POST');
-                if (response.success) {
-                    this.showAlert('success', 'DNSmasq service restarted successfully!');
-                    this.dismissBanner();
-                    modal.hide();
-                    
-                    // Trigger immediate dashboard refresh
-                    setTimeout(() => this.loadDashboard(), 500);
-                } else {
-                    this.showAlert('danger', response.error || 'Failed to restart DNSmasq');
-                }
-            } catch (error) {
-                this.showAlert('danger', 'Failed to restart DNSmasq service: ' + (error.message || 'Unknown error'));
-                console.error(error);
-            } finally {
-                newConfirmBtn.disabled = false;
-                newConfirmBtn.innerHTML = 'Yes, Restart';
+        try {
+            // 1. Pre-verify configuration
+            const verifyResponse = await this.apiCall('/dnsmasq/verify');
+            if (!verifyResponse.success || !verifyResponse.data.valid) {
+                const errorMsg = verifyResponse.data ? verifyResponse.data.output : (verifyResponse.error || 'Configuration verification failed');
+                this.showAlert('danger', errorMsg);
+                return;
             }
-        });
 
-        modal.show();
+            // 2. If valid, show confirmation modal
+            const modalEl = document.getElementById('restartServiceModal');
+            const modal = new bootstrap.Modal(modalEl);
+            
+            // Clone button to remove stacked listeners
+            const confirmBtn = document.getElementById('confirm-restart-service-btn');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            newConfirmBtn.addEventListener('click', async () => {
+                try {
+                    newConfirmBtn.disabled = true;
+                    newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Restarting...';
+                    
+                    const response = await this.apiCall('/dnsmasq/restart', 'POST');
+                    if (response.success) {
+                        this.showAlert('success', 'DNSmasq service restarted successfully!');
+                        this.dismissBanner();
+                        modal.hide();
+                        
+                        // Trigger immediate dashboard refresh
+                        setTimeout(() => this.loadDashboard(), 500);
+                    } else {
+                        // All danger alerts are now persistent
+                        this.showAlert('danger', response.error || 'Failed to restart DNSmasq');
+                    }
+                } catch (error) {
+                    this.showAlert('danger', 'Failed to restart DNSmasq service: ' + (error.message || 'Unknown error'));
+                    console.error(error);
+                } finally {
+                    newConfirmBtn.disabled = false;
+                    newConfirmBtn.innerHTML = 'Yes, Restart';
+                }
+            });
+
+            modal.show();
+        } catch (error) {
+            this.showAlert('danger', 'Failed to verify configuration: ' + error.message);
+            console.error(error);
+        }
     }
 
     async reloadService() {
-        const modalEl = document.getElementById('reloadServiceModal');
-        const modal = new bootstrap.Modal(modalEl);
-        
-        // Clone button to remove stacked listeners
-        const confirmBtn = document.getElementById('confirm-reload-service-btn');
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        
-        newConfirmBtn.addEventListener('click', async () => {
-            try {
-                newConfirmBtn.disabled = true;
-                newConfirmBtn.innerHTML = '<i class="bi bi-shield-check me-2"></i>Verifying...';
-
-                const response = await this.apiCall('/dnsmasq/reload', 'POST');
-                if (response.success) {
-                    this.showAlert('success', 'DNSmasq service reloaded successfully!');
-                    this.dismissBanner();
-                    modal.hide();
-                    
-                    // Trigger immediate dashboard refresh
-                    setTimeout(() => this.loadDashboard(), 500);
-                } else {
-                    this.showAlert('danger', response.error || 'Failed to reload DNSmasq');
-                }
-            } catch (error) {
-                this.showAlert('danger', 'Failed to reload DNSmasq service: ' + (error.message || 'Unknown error'));
-                console.error(error);
-            } finally {
-                newConfirmBtn.disabled = false;
-                newConfirmBtn.innerHTML = 'Yes, Reload';
+        try {
+            // 1. Pre-verify configuration
+            const verifyResponse = await this.apiCall('/dnsmasq/verify');
+            if (!verifyResponse.success || !verifyResponse.data.valid) {
+                const errorMsg = verifyResponse.data ? verifyResponse.data.output : (verifyResponse.error || 'Configuration verification failed');
+                this.showAlert('danger', errorMsg);
+                return;
             }
-        });
 
-        modal.show();
+            // 2. If valid, show confirmation modal
+            const modalEl = document.getElementById('reloadServiceModal');
+            const modal = new bootstrap.Modal(modalEl);
+            
+            // Clone button to remove stacked listeners
+            const confirmBtn = document.getElementById('confirm-reload-service-btn');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            newConfirmBtn.addEventListener('click', async () => {
+                try {
+                    newConfirmBtn.disabled = true;
+                    newConfirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Reloading...';
+
+                    const response = await this.apiCall('/dnsmasq/reload', 'POST');
+                    if (response.success) {
+                        this.showAlert('success', 'DNSmasq service reloaded successfully!');
+                        this.dismissBanner();
+                        modal.hide();
+                        
+                        // Trigger immediate dashboard refresh
+                        setTimeout(() => this.loadDashboard(), 500);
+                    } else {
+                        this.showAlert('danger', response.error || 'Failed to reload DNSmasq');
+                    }
+                } catch (error) {
+                    this.showAlert('danger', 'Failed to reload DNSmasq service: ' + (error.message || 'Unknown error'));
+                    console.error(error);
+                } finally {
+                    newConfirmBtn.disabled = false;
+                    newConfirmBtn.innerHTML = 'Yes, Reload';
+                }
+            });
+
+            modal.show();
+        } catch (error) {
+            this.showAlert('danger', 'Failed to verify configuration: ' + error.message);
+            console.error(error);
+        }
     }
 
     showBanner(message = 'Reload the DNSmasq service to apply recent configuration changes.') {

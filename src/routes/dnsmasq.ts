@@ -27,6 +27,22 @@ dnsmasqRoutes.get('/interfaces', (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Verify current configuration
+dnsmasqRoutes.get('/verify', async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await dnsmasqService.verifyConfig();
+    res.json({
+      success: true,
+      data: result
+    } as ApiResponse);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify configuration'
+    } as ApiResponse);
+  }
+});
+
 // Get current dnsmasq configuration
 dnsmasqRoutes.get('/config', async (req: AuthenticatedRequest, res) => {
   try {
