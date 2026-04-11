@@ -1,4 +1,4 @@
-// DNSmasq GUI Frontend JavaScript
+// Keystone LAN Services Frontend JavaScript
 
 class DnsmasqGUI {
     constructor() {
@@ -80,7 +80,7 @@ class DnsmasqGUI {
     }
 
     async init() {
-        console.log('Initializing DNSmasq GUI...');
+        console.log('Initializing Keystone LAN Services...');
         
         // Check if user is authenticated
         if (!this.token) {
@@ -3899,7 +3899,7 @@ class DnsmasqGUI {
                 body: JSON.stringify({
                     macAddress,
                     ipAddress,
-                    hostname: hostname || undefined
+                    hostname: hostname
                 })
             });
 
@@ -4183,7 +4183,7 @@ class DnsmasqGUI {
                     startIp,
                     endIp,
                     leaseTime,
-                    tag: tag || undefined,
+                    tag,
                     netmask,
                     active
                 })
@@ -4551,7 +4551,7 @@ class DnsmasqGUI {
                 body: JSON.stringify({
                     optionNumber,
                     value,
-                    tag: tag || undefined,
+                    tag: tag,
                     active
                 })
             });

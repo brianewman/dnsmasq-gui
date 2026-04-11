@@ -1,7 +1,7 @@
 # DNS Record Types Analysis Report
 
 ## Overview
-This report analyzes the data field requirements for standard DNS record types to determine the optimal UI design approach for the DNSmasq GUI.
+This report analyzes the data field requirements for standard DNS record types to determine the optimal UI design approach for the Keystone LAN Services.
 
 ## DNS Record Types and Data Fields
 

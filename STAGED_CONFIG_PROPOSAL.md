@@ -597,7 +597,7 @@ export class ConfigApplier {
 
 ### Typical User Journey
 ```
-1. User opens DNSmasq GUI
+1. User opens Keystone LAN Services
    ↓
 2. System initializes staging (copies live config if needed)
    ↓

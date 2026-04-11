@@ -2,7 +2,7 @@
 
 A modern web-based graphical user interface for managing DNSmasq configuration on Raspberry Pi and other Linux systems.
 
-![DNSmasq GUI Dashboard](https://img.shields.io/badge/status-in%20development-yellow)
+![Keystone LAN Services Dashboard](https://img.shields.io/badge/status-in%20development-yellow)
 ![License](https://img.shields.io/badge/license-ISC-blue)
 ![Node.js](https://img.shields.io/badge/node.js-18%2B-brightgreen)
 ![TypeScript](https://img.shields.io/badge/typescript-5.8-blue)

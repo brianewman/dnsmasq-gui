@@ -1,7 +1,7 @@
 # Configuration Validation Feature Proposal
 
 ## Overview
-Implement comprehensive configuration validation for the DNSmasq GUI to prevent invalid configurations, detect conflicts, and ensure service reliability before applying changes.
+Implement comprehensive configuration validation for the Keystone LAN Services to prevent invalid configurations, detect conflicts, and ensure service reliability before applying changes.
 
 ## Problem Statement
 
@@ -682,7 +682,7 @@ class CustomValidationPlugin {
 }
 ```
 
-This comprehensive validation system will significantly improve the reliability and user experience of the DNSmasq GUI while preventing configuration errors that could disrupt network services.
+This comprehensive validation system will significantly improve the reliability and user experience of the Keystone LAN Services while preventing configuration errors that could disrupt network services.
 
 ---
 

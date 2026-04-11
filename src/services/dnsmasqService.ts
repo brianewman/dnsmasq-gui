@@ -1788,7 +1788,7 @@ export class DnsmasqService {
       await fs.ensureDir(configDir);
       
       // Generate content for the CNAME config file
-      let configContent = '# DNS CNAME Records managed by DNSmasq GUI\n';
+      let configContent = '# DNS CNAME Records managed by Keystone LAN Services\n';
       configContent += '# This file is auto-generated, do not edit manually\n\n';
       
       if (cnameRecords.length > 0) {
