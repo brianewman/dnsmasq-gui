@@ -16,8 +16,7 @@ A modern web-based graphical user interface for managing DNSmasq configuration o
 - **📊 Real-time Monitoring**: View active DHCP leases and service status
 - **🔄 Lease Management**: Convert dynamic leases to static reservations with one click
 - **🌍 Multi-network Support**: Handle multiple networks with DHCP relay support
-- **🍓 Raspberry Pi Optimized**: Designed specifically for Raspberry Pi deployment
-- **🛠️ Easy Deployment**: Automated deployment scripts and troubleshooting tools
+- **🛠️ Easy Deployment**: Streamlined Docker Compose deployment for Raspberry Pi and other Linux systems
 
 ## 📸 Screenshots
 
@@ -98,13 +97,20 @@ DNSMASQ_LEASES_PATH=/var/lib/dhcp/dhcpd.leases
 DNSMASQ_ADDITIONAL_CONFIG_DIR=/etc/dnsmasq.d
 ```
 
-### Raspberry Pi Deployment
-
-1. Copy the built application to your Raspberry Pi
-2. Install Node.js on the Pi
-3. Set up the environment variables
-4. Configure systemd service (see `deployment/` directory)
-5. Ensure the web application has appropriate permissions to read/write DNSmasq files
+### Deployment
+ 
+### Docker Deployment (Recommended)
+ 
+The easiest way to deploy Keystone LAN Services is using Docker Compose:
+ 
+1. Clone the repository and navigate to the directory.
+2. Configure your environment variables in `.env` (use `.env.example` as a template).
+3. Start the services:
+   ```bash
+   docker compose up -d
+   ```
+ 
+The application will be available at `http://your-ip:3000`.
 
 ## Project Structure
 
@@ -162,16 +168,14 @@ dnsmasq-gui/
 
 ## Development Status
 
-This project is in early development. Current status:
-
 - ✅ Project structure and TypeScript setup
 - ✅ Basic Express.js server with authentication
 - ✅ Frontend HTML structure with Bootstrap UI
 - ✅ DNSmasq configuration parser (basic)
 - ✅ DHCP lease reading functionality
+- ✅ Dockerized deployment setup
 - 🔄 Frontend JavaScript implementation (in progress)
 - ⏳ Complete DNSmasq configuration management
-- ⏳ Production deployment scripts
 - ⏳ Testing and documentation
 
 ## Contributing
@@ -202,10 +206,10 @@ ISC License - see LICENSE file for details.
 - Advanced DNS settings
 
 ### Phase 4: Production Ready
-- Systemd service configuration
-- Security hardening
+- Container security hardening
 - Performance optimization
 - Comprehensive testing
+- Documentation completion
 
 ### Phase 5: Advanced Features
 - Configuration backup/restore
